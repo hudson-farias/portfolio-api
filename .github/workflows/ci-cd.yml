@@ -21,4 +21,4 @@ jobs:
       - name: Connect, pull and re-build
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-          'cd codes/portfolio-central/portfolio-api && git pull && nohup docker-compose up -d --build > deploy.log 2>&1 & disown'
+          'cd codes/portfolio-central/portfolio-api && git pull && nohup docker-compose up -d --build --remove-orphans > deploy.log 2>&1 & disown'
