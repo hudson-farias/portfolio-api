@@ -8,3 +8,4 @@ sqlalchemy
 alembic
 psycopg2-binary
 asyncpg
+reportlab

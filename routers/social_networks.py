@@ -10,10 +10,10 @@ router = APIRouter()
 
 
 async def get_social_networks(show_header: bool = False, show_footer: bool = False):
-    params = {}
-
-    if show_header: params['show_header'] = show_header
-    if show_footer: params['show_footer'] = show_footer
+    params = {
+        'show_header': show_header,
+        'show_footer': show_footer,
+    }
 
     async with SocialNetworksORM() as orm: social_networks = await orm.find_many(**params)
     return [SocialNetwork(**social_network.dict()) for social_network in social_networks]

@@ -2,14 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from importlib import import_module
-from dotenv import load_dotenv
-from os import walk, getenv
 from os.path import join
+from os import walk
 
-load_dotenv()
-
-DOCS_PATH = getenv('DOCS_PATH')
-REDOCS_PATH = getenv('REDOCS_PATH')
+from env import DOCS_PATH, REDOCS_PATH
 
 
 app = FastAPI(root_path = '/api', docs_url = DOCS_PATH, redoc_url = REDOCS_PATH)

@@ -3,6 +3,9 @@ from os import  getenv
 
 load_dotenv()
 
+DOCS_PATH = getenv('DOCS_PATH')
+REDOCS_PATH = getenv('REDOCS_PATH')
+
 AUTH_APP_URL = getenv('AUTH_APP_URL')
 GITHUB_ACCESS_TOKEN = getenv('GITHUB_ACCESS_TOKEN')
 

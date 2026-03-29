@@ -10,6 +10,7 @@ GITHUB_API_URL_PRIVATE = 'https://api.github.com/user/repos?per_page=100'
 
 
 def github(is_auth: bool):
+    return []
     data = get_cache(f'github-{is_auth}')
     if data: return data
 
