@@ -21,21 +21,22 @@ class Curriculum:
         self.styles.add(ParagraphStyle(name = 'Body', fontSize = 10, leading = 12))
 
 
-    def __add(self, text: str, style: str = 'Normal'):
+    def __add(self, text: str, style: str = 'Normal', spacer: int = 5):
         self.content.append(Paragraph(text, self.styles[style]))
-        self.content.append(Spacer(1, 8))
+        self.content.append(Spacer(1, spacer))
 
 
     async def __header(self):
-        self.__add('<b>Hudson Farias</b>', 'HeaderTitle')
-        self.__add('Desenvolvedor de Software | Fullstack | DevOps', 'HeaderSubtitle')
-        self.__add('Rio de Janeiro - Brasil | Português (Nativo) | Inglês (Técnico)')
+        self.__add('<b>Hudson Farias</b>', 'HeaderTitle', spacer = 9)
+        self.__add('Software Engineer | Fullstack Engineer | DevOps', 'HeaderSubtitle', spacer = 9)
+        self.__add('Rio de Janeiro - Brasil | Português (Nativo) | Inglês (Técnico)', spacer = 3)
+        self.__add('hudson.farias.dev@gmail.com | 21 99688-9408', spacer = 3)
         self.__add('<br />')
 
 
     async def __summary(self):
         self.__add('<b>Resumo Profissional</b>', 'SectionTitle')
-        self.__add('Desenvolvedor de Software com experiência em desenvolvimento Fullstack, arquitetura de sistemas e práticas de DevOps. Atuação com APIs, microsserviços, automação e deploy em VPS. Experiência como Tech Leader em equipe pequena, com foco em performance, escalabilidade e segurança.')
+        self.__add('Software Engineer com experiência em desenvolvimento backend, arquitetura de sistemas e práticas DevOps. Atuação em aplicações Fullstack com FastAPI, Next.js e TypeScript, incluindo microsserviços, automações, integrações e deploy em VPS Linux com Docker e Nginx. \n\n Experiência como Tech Leader em startup, liderando decisões técnicas, evolução arquitetural, manutenção de sistemas legados e otimizações de performance.')
         self.__add('<br />')
 
 
@@ -59,7 +60,8 @@ class Curriculum:
         async with ExperiencesORM() as orm: experiences = await orm.find_many()
 
         for experience in experiences[::-1]:
-            title = f'{experience.company} | {experience.role}' if experience.id != 3 else f'{experience.role}'
+            title = f'{experience.company} | {experience.role}'
+            # title = f'{experience.company} | {experience.role}' if experience.id != 3 else f'{experience.role}'
             self.__add(f'<b>{title} | {experience.period} </b>', 'SectionSubtitle')
             self.__add(experience.description)
 

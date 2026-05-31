@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pydantic
 httpx
+pyjwt
 python-dotenv
 redis
 sqlalchemy
