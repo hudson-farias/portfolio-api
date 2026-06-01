@@ -6,6 +6,7 @@ class ExperienceDTO(BaseModel):
     period: str
     role: str
     description: str
+    hidden: bool = False
 
 
 class Experience(ExperienceDTO):

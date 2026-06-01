@@ -57,7 +57,7 @@ class Curriculum:
     async def __experience(self):
         self.__add('<b>Experiência Profissional</b>', 'SectionTitle')
 
-        async with ExperiencesORM() as orm: experiences = await orm.find_many()
+        async with ExperiencesORM() as orm: experiences = await orm.find_many(hidden = False)
 
         for experience in experiences[::-1]:
             title = f'{experience.company} | {experience.role}'

@@ -31,7 +31,7 @@ async def get_skills():
 
 
 async def get_experiences():
-    async with ExperiencesORM() as orm: experiences = await orm.find_many()
+    async with ExperiencesORM() as orm: experiences = await orm.find_many(hidden = False)
     return [Experience(**experience.dict()) for experience in experiences]
 
 
