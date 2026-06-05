@@ -29,8 +29,16 @@ def load(subapp: FastAPI, directory: str = 'routers'):
                 if path not in import_cache:
                     import_cache[path] = import_module(path)
 
-                module = import_cache[path]
-                subapp.include_router(module.router)
+    included_routers = set()
+
+    for module in import_cache.values():
+        router_id = id(module.router)
+
+        if router_id in included_routers:
+            continue
+
+        included_routers.add(router_id)
+        subapp.include_router(module.router)
 
     del import_cache
 

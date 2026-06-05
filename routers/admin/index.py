@@ -9,8 +9,6 @@ from database.projects import ProjectsORM
 from database.social_networks import SocialNetworksORM
 
 from models.admin.dashboard import *
-from models.admin.experiences import Experience
-from models.admin.social_networks import SocialNetwork
 
 from services.github import github
 
@@ -30,7 +28,7 @@ async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
         else: experiences = await orm.find_many(hidden = False)
 
     data.counts.experiences = len(experiences)
-    data.experiences = [Experience(**experience.dict()) for experience in experiences[:PREVIEW_EXPERIENCES]]
+    data.experiences = [DashboardExperience(**experience.dict()) for experience in experiences[:PREVIEW_EXPERIENCES]]
 
     async with SkillsORM() as orm: skills = await orm.find_many()
     async with SkillsCategoriesORM() as orm: categories = await orm.find_many()
@@ -67,8 +65,8 @@ async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
 
     data.counts.social_networks = len(social_networks)
 
-    header = [SocialNetwork(**item.dict()) for item in social_networks if item.show_header]
-    footer = [SocialNetwork(**item.dict()) for item in social_networks if item.show_footer]
+    header = [DashboardSocialNetwork(**item.dict()) for item in social_networks if item.show_header]
+    footer = [DashboardSocialNetwork(**item.dict()) for item in social_networks if item.show_footer]
 
     data.social_networks_header = header[:PREVIEW_SOCIAL]
     data.social_networks_footer = footer[:PREVIEW_SOCIAL]

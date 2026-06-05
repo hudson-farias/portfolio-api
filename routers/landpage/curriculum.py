@@ -1,9 +1,8 @@
-from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 
-from facades.curriculum import Curriculum
+from routers.landpage import router
 
-router = APIRouter()
+from generators.curriculum import Curriculum
 
 @router.get('/curriculum')
 async def get_curriculum():
