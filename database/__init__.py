@@ -5,10 +5,10 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 from sqlalchemy.sql import func
 
 from math import ceil
-from env import POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_PORT, POSTGRES_DB
+from env import postgres_url
 
 
-db_url = f'postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
+db_url = postgres_url()
 
 engine = create_async_engine(db_url, pool_pre_ping = True, echo = False)
 Session = sessionmaker(engine, expire_on_commit = False, class_ = AsyncSession, future = True)
