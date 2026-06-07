@@ -25,5 +25,6 @@ def github(is_auth: bool):
     response = get(github_url, headers = headers)
     projects = response.json()
 
-    set_cache(f'github-{is_auth}', projects)
+    # set_cache(f'github-{is_auth}', projects)
+    print(projects)
     return projects

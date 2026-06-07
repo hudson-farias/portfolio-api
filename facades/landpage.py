@@ -3,15 +3,21 @@ from database.skills import SkillsORM
 from database.experiences import ExperiencesORM
 from database.projects import ProjectsORM
 from database.social_networks import SocialNetworksORM
+from database.profiles import ProfilesORM
+from database.roles import RolesORM
+
+from services.experiences import roles_map, role_title
+from services.github import github
 
 from models.landpage.about import AboutProfile, AboutResponse, Stats
 from models.landpage.contact import ContactResponse
 from models.landpage.experiences import Experience, ExperiencesResponse
 from models.landpage.hero import HeroProfile, HeroResponse, SocialNetwork
+from models.landpage.landpage import LandpageResponse
 from models.landpage.projects import Project, ProjectsResponse
 from models.landpage.skills import Skill, SkillCategory, SkillsResponse
 
-from services.github import github
+from asyncio import gather
 
 
 PROFILE = {
@@ -30,7 +36,6 @@ STATS = Stats(
     projects_count = 0,
     clients_count = 5,
 )
-
 
 class Landpage:
     async def __skills(self):
@@ -52,8 +57,31 @@ class Landpage:
 
 
     async def __experiences(self):
-        async with ExperiencesORM() as orm: experiences = await orm.find_many(hidden = False)
-        return [Experience(**experience.dict()) for experience in experiences]
+        titles = await roles_map()
+
+        async with ExperiencesORM() as orm:
+            experiences = await orm.find_many(hidden = False)
+
+        return [
+            Experience(
+                id = experience.id,
+                company = experience.company,
+                period = experience.period,
+                role = role_title(experience.role_id, titles) or '',
+                contract_type = experience.contract_type,
+                description = experience.description,
+            )
+            for experience in experiences
+        ]
+
+
+    async def __visible_roles(self, locale: str = 'pt'):
+        async with RolesORM() as orm:
+            roles = await orm.find_many(show = True, active = True)
+
+        roles = [role for role in roles if role.locale in (locale, 'todos')]
+        roles.sort(key = lambda role: (not role.featured, role.sort_order, role.id))
+        return [role.title for role in roles]
 
 
     async def __projects(self):
@@ -84,25 +112,34 @@ class Landpage:
         return [SocialNetwork(**social_network.dict()) for social_network in social_networks]
 
 
+    async def __profile(self):
+        async with ProfilesORM() as orm:
+            return await orm.find_one()
+
+
     async def hero(self):
+        profile = await self.__profile()
+        visible_roles = await self.__visible_roles()
+
         return HeroResponse(
             profile = HeroProfile(
-                name = PROFILE['name'],
-                roles = PROFILE['roles'],
-                location = PROFILE['location'],
+                name = profile.name if profile else PROFILE['name'].split()[0],
+                roles = visible_roles if visible_roles else PROFILE['roles'],
+                location = profile.location if profile else PROFILE['location'],
                 email = PROFILE['email'],
-                about = PROFILE['about'],
-                available = PROFILE['available'],
+                about = profile.summary if profile else PROFILE['about'],
+                available = profile.available if profile else PROFILE['available'],
             ),
             social_networks = await self.__social_networks(show_header = True),
         )
 
 
     async def about(self):
+        profile = await self.__profile()
         projects = await self.__projects()
 
         return AboutResponse(
-            profile = AboutProfile(about_extended = PROFILE['about_extended']),
+            profile = AboutProfile(about_extended = profile.about_me if profile else PROFILE['about_extended']),
             stats = STATS.model_copy(update = {'projects_count': len(projects)}),
         )
 
@@ -123,4 +160,24 @@ class Landpage:
         return ContactResponse(
             email = PROFILE['email'],
             others = [],
+        )
+
+
+    async def all(self):
+        about, contact, experiences, hero, projects, skills = await gather(
+            self.about(),
+            self.contact(),
+            self.experiences(),
+            self.hero(),
+            self.projects(),
+            self.skills(),
+        )
+
+        return LandpageResponse(
+            about = about,
+            contact = contact,
+            experiences = experiences,
+            hero = hero,
+            projects = projects,
+            skills = skills,
         )

@@ -11,6 +11,7 @@ from database.social_networks import SocialNetworksORM
 from models.admin.dashboard import *
 
 from services.github import github
+from services.experiences import roles_map, role_title
 
 
 PREVIEW_EXPERIENCES = 3
@@ -23,12 +24,24 @@ PREVIEW_SOCIAL = 3
 async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
     data = DashboardResponse(counts = DashboardCounts(experiences = 0, skills = 0, projects = 0, social_networks = 0))
 
+    titles = await roles_map()
+
     async with ExperiencesORM() as orm:
         if is_auth: experiences = await orm.find_many()
         else: experiences = await orm.find_many(hidden = False)
 
     data.counts.experiences = len(experiences)
-    data.experiences = [DashboardExperience(**experience.dict()) for experience in experiences[:PREVIEW_EXPERIENCES]]
+    data.experiences = [
+        DashboardExperience(
+            id = experience.id,
+            company = experience.company,
+            period = experience.period,
+            role = role_title(experience.role_id, titles) or '—',
+            description = experience.description,
+            hidden = experience.hidden,
+        )
+        for experience in experiences[:PREVIEW_EXPERIENCES]
+    ]
 
     async with SkillsORM() as orm: skills = await orm.find_many()
     async with SkillsCategoriesORM() as orm: categories = await orm.find_many()

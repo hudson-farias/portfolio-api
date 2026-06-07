@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
 from database import Base
 
 
@@ -8,6 +8,7 @@ class ExperiencesORM(Base):
     id = Column(Integer, primary_key = True, index = True)
     company = Column(String(255), nullable = False)
     period = Column(String(100), nullable = False)
-    role = Column(String(150), nullable = False)
+    role_id = Column(Integer, ForeignKey('roles.id', ondelete = 'SET NULL'), nullable = True)
+    contract_type = Column(String(20), nullable = True)
     description = Column(String(255), nullable = False)
     hidden = Column(Boolean, nullable = False, default = False)
