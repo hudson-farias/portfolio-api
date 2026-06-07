@@ -14,9 +14,13 @@ DISCORD_CLIENT_SECRET = getenv('DISCORD_CLIENT_SECRET')
 
 JWT_SECRET = getenv('JWT_SECRET')
 JWT_ALGORITHM = getenv('JWT_ALGORITHM')
+JWT_EXPIRES_DAYS = int(getenv('JWT_EXPIRES_DAYS', '7'))
 OWNER_EMAILS = getenv('OWNER_EMAILS', '').split(',')
 
 ADMIN_AUTH = getenv('ADMIN_AUTH')
+COOKIE_DOMAIN = getenv('COOKIE_DOMAIN')
+COOKIE_SECURE = getenv('COOKIE_SECURE', 'true').strip().lower() in {'1', 'true', 'yes', 'on'}
+CORS_ORIGINS = getenv('CORS_ORIGINS', '')
 
 POSTGRES_HOST = getenv('POSTGRES_HOST')
 POSTGRES_USER = getenv('POSTGRES_USER')

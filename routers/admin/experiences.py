@@ -6,6 +6,7 @@ from database.experiences import ExperiencesORM
 from models.admin.experiences import *
 
 from services.experiences import roles_map, role_title
+from utils.sanitize import sanitize_html
 
 from typing import List
 
@@ -33,16 +34,22 @@ async def get_experiences(is_auth: bool = Depends(partial_authenticated)):
 
 @router.post('/experiences', status_code = 201, response_model = List[Experience])
 async def post_experience(params: ExperienceDTO, is_auth: bool = Depends(has_authenticated)):
+    data = params.dict()
+    data['description'] = sanitize_html(data['description'])
+
     async with ExperiencesORM() as orm:
-        await orm.create(**params.dict())
+        await orm.create(**data)
 
     return await response_data(is_auth)
 
 
 @router.put('/experiences/{experience_id}', status_code = 201, response_model = List[Experience])
 async def put_experience(experience_id: int, params: ExperienceDTO, is_auth: bool = Depends(has_authenticated)):
+    data = params.dict()
+    data['description'] = sanitize_html(data['description'])
+
     async with ExperiencesORM() as orm:
-        await orm.update(id = experience_id, **params.dict())
+        await orm.update(id = experience_id, **data)
 
     return await response_data(is_auth)
 
