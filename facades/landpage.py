@@ -1,35 +1,18 @@
+from database.social_networks import SocialNetworksORM
 from database.skills_categories import SkillsCategoriesORM
 from database.skills import SkillsORM
 from database.experiences import ExperiencesORM
 from database.projects import ProjectsORM
-from database.social_networks import SocialNetworksORM
 from database.profiles import ProfilesORM
 from database.roles import RolesORM
 
 from services.experiences import roles_map, role_title
 from services.github import github
 
-from models.landpage.about import AboutProfile, AboutResponse, Stats
-from models.landpage.contact import ContactResponse
-from models.landpage.experiences import Experience, ExperiencesResponse
-from models.landpage.hero import HeroProfile, HeroResponse, SocialNetwork
-from models.landpage.landpage import LandpageResponse
-from models.landpage.projects import Project, ProjectsResponse
-from models.landpage.skills import Skill, SkillCategory, SkillsResponse
+from models.landpage import *
 
 from asyncio import gather
 
-
-PROFILE = {
-    'name': 'Hudson Farias',
-    'roles': ['Software Developer', 'Fullstack Engineer', 'DevOps'],
-    'location': 'Rio de Janeiro, Brasil',
-    'email': 'hudson.farias.dev@gmail.com',
-    'phone': '21 99688-9408',
-    'about': 'Desenvolvedor de software com experiência desde janeiro de 2021. Construo aplicações web focadas em performance, qualidade e manutenção.',
-    'about_extended': 'Atuo com desenvolvimento de software e tenho como base linguagens como Python, C#, TypeScript e PHP. Trabalho principalmente com FastAPI, Playwright, Next.js e Tailwind, unindo backend, frontend e automação para entregar produtos confiáveis. Experiência como Tech Leader em startup, liderando decisões técnicas, evolução arquitetural e otimizações de performance.',
-    'available': True,
-}
 
 STATS = Stats(
     years_experience = 5,
@@ -38,132 +21,148 @@ STATS = Stats(
 )
 
 class Landpage:
-    async def __skills(self):
-        data = []
-
-        async with SkillsCategoriesORM() as orm: skills_categories = await orm.find_many()
-        async with SkillsORM() as orm:
-            for category in skills_categories:
-                skills = await orm.find_many(skill_category_id = category.id)
-
-                skill_data = SkillCategory(
-                    title = category.title,
-                    skills = [Skill(**skill.dict()) for skill in skills],
-                )
-
-                data.append(skill_data)
-
-        return data
+    __skills = None
+    __experiences = None
+    __roles = None
+    __projects = None
+    __profile = None
+    __social_networks = None
 
 
-    async def __experiences(self):
-        titles = await roles_map()
+    async def __fetch_social_networks(self):
+        if not self.__social_networks:
+            self.__social_networks = {}
 
-        async with ExperiencesORM() as orm:
-            experiences = await orm.find_many(hidden = False)
+            async with SocialNetworksORM() as orm: rows = await orm.find_many()
 
-        return [
-            Experience(
+            for item in rows:
+                network = SocialNetwork(**item.dict())
+
+                for section in item.positions:
+                    if section not in self.__social_networks: self.__social_networks[section] = []
+                    self.__social_networks[section].append(network)
+
+        return self.__social_networks
+
+
+    async def __fetch_skills(self):
+        if not self.__skills:
+            self.__skills = []
+
+            async with SkillsCategoriesORM() as orm: skills_categories = await orm.find_many()
+            async with SkillsORM() as orm:
+                for category in skills_categories:
+                    skills = await orm.find_many(skill_category_id = category.id)
+                    skill_data = SkillCategory(title = category.title, skills = [Skill(**skill.dict()) for skill in skills],)
+
+                    self.__skills.append(skill_data)
+
+        return self.__skills
+
+
+    async def __fetch_experiences(self):
+        if not self.__experiences:
+            titles = await roles_map()
+
+            async with ExperiencesORM() as orm: experiences = await orm.find_many(hidden = False)
+
+            self.__experiences = [Experience(
                 id = experience.id,
                 company = experience.company,
                 period = experience.period,
                 role = role_title(experience.role_id, titles) or '',
                 contract_type = experience.contract_type,
                 description = experience.description,
-            )
-            for experience in experiences
-        ]
+            ) for experience in experiences]
+
+        return self.__experiences
 
 
-    async def __visible_roles(self, locale: str = 'pt'):
-        async with RolesORM() as orm:
-            roles = await orm.find_many(show = True, active = True)
+    async def __fetch_roles(self, locale: str = 'pt'):
+        if not self.__roles:
+            async with RolesORM() as orm:
+                roles = await orm.find_many(show = True, active = True)
 
-        roles = [role for role in roles if role.locale in (locale, 'todos')]
-        roles.sort(key = lambda role: (not role.featured, role.sort_order, role.id))
-        return [role.title for role in roles]
+            roles = [role for role in roles if role.locale is None or role.locale == locale]
+            roles.sort(key = lambda role: (not role.featured, role.sort_order, role.id))
 
+            self.__roles = [role.title for role in roles]
 
-    async def __projects(self):
-        async with ProjectsORM() as orm: projects = await orm.find_many()
-        projects_ids = [project.git_id for project in projects]
-
-        projects = github(True)
-
-        data = []
-
-        for project in projects:
-            project_dto = Project(**project)
-            project_dto.name = project_dto.name.replace('-', ' ').title()
-            project_dto.html_url = None if project['private'] else project_dto.html_url
-
-            if project['id'] in projects_ids: data.append(project_dto)
-
-        return data
+        return self.__roles
 
 
-    async def __social_networks(self, show_header: bool = False, show_footer: bool = False):
-        params = {
-            'show_header': show_header,
-            'show_footer': show_footer,
-        }
+    async def __fetch_projects(self):
+        if not self.__projects:
+            async with ProjectsORM() as orm: projects = await orm.find_many()
+            projects_ids = [project.git_id for project in projects]
 
-        async with SocialNetworksORM() as orm: social_networks = await orm.find_many(**params)
-        return [SocialNetwork(**social_network.dict()) for social_network in social_networks]
+            projects = github(True)
+
+            self.__projects = []
+
+            for project in projects:
+                project_dto = Project(**project)
+                project_dto.name = project_dto.name.replace('-', ' ').title()
+                project_dto.html_url = None if project['private'] else project_dto.html_url
+
+                if project['id'] in projects_ids: self.__projects.append(project_dto)
+
+        return self.__projects
 
 
-    async def __profile(self):
-        async with ProfilesORM() as orm:
-            return await orm.find_one()
+    async def __fetch_profile(self):
+        if not self.__profile:
+            async with ProfilesORM() as orm: self.__profile = await orm.find_one()
+
+        return self.__profile
 
 
     async def hero(self):
-        profile = await self.__profile()
-        visible_roles = await self.__visible_roles()
+        profile = await self.__fetch_profile()
+        visible_roles = await self.__fetch_roles()
 
         return HeroResponse(
             profile = HeroProfile(
-                name = profile.name if profile else PROFILE['name'].split()[0],
-                roles = visible_roles if visible_roles else PROFILE['roles'],
-                location = profile.location if profile else PROFILE['location'],
-                email = PROFILE['email'],
-                about = profile.summary if profile else PROFILE['about'],
-                available = profile.available if profile else PROFILE['available'],
+                name = profile.name,
+                roles = visible_roles,
+                location = profile.location,
+                about = profile.summary,
+                available = profile.available,
             ),
-            social_networks = await self.__social_networks(show_header = True),
+            social_networks = self.__social_networks.get('hero') or []
         )
 
 
     async def about(self):
-        profile = await self.__profile()
-        projects = await self.__projects()
+        profile = await self.__fetch_profile()
+        projects = await self.__fetch_projects()
 
         return AboutResponse(
-            profile = AboutProfile(about_extended = profile.about_me if profile else PROFILE['about_extended']),
+            profile = AboutProfile(about_extended = profile.about_me),
             stats = STATS.model_copy(update = {'projects_count': len(projects)}),
+            social_networks = self.__social_networks.get('about') or []
         )
 
 
     async def skills(self):
-        return SkillsResponse(skills = await self.__skills())
+        return SkillsResponse(skills = await self.__fetch_skills())
 
 
     async def experiences(self):
-        return ExperiencesResponse(experiences = await self.__experiences())
+        return ExperiencesResponse(experiences = await self.__fetch_experiences())
 
 
     async def projects(self):
-        return ProjectsResponse(projects = await self.__projects())
+        return ProjectsResponse(projects = await self.__fetch_projects())
 
 
     async def contact(self):
-        return ContactResponse(
-            email = PROFILE['email'],
-            others = [],
-        )
+        return ContactResponse(others = self.__social_networks.get('contact') or [])
 
 
     async def all(self):
+        await self.__fetch_social_networks()
+
         about, contact, experiences, hero, projects, skills = await gather(
             self.about(),
             self.contact(),
@@ -180,4 +179,5 @@ class Landpage:
             hero = hero,
             projects = projects,
             skills = skills,
+            footer = FooterResponse(social_networks = self.__social_networks.get('footer') or [])
         )

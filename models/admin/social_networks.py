@@ -1,10 +1,11 @@
 from pydantic import BaseModel
+from typing import List
+
 
 class SocialNetworkDTO(BaseModel):
     url: str
     icon: str
-    show_header: bool
-    show_footer: bool
+    positions: List[str]
 
 
 class SocialNetwork(SocialNetworkDTO):

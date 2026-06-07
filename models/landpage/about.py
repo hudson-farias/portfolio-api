@@ -1,4 +1,7 @@
 from pydantic import BaseModel
+from typing import List
+
+from models.landpage.__base import SocialNetwork
 
 
 class AboutProfile(BaseModel):
@@ -14,3 +17,4 @@ class Stats(BaseModel):
 class AboutResponse(BaseModel):
     profile: AboutProfile
     stats: Stats
+    social_networks: List[SocialNetwork] = []

@@ -77,11 +77,9 @@ async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
     async with SocialNetworksORM() as orm: social_networks = await orm.find_many()
 
     data.counts.social_networks = len(social_networks)
-
-    header = [DashboardSocialNetwork(**item.dict()) for item in social_networks if item.show_header]
-    footer = [DashboardSocialNetwork(**item.dict()) for item in social_networks if item.show_footer]
-
-    data.social_networks_header = header[:PREVIEW_SOCIAL]
-    data.social_networks_footer = footer[:PREVIEW_SOCIAL]
+    data.social_networks = [
+        DashboardSocialNetwork(**item.dict())
+        for item in social_networks[:PREVIEW_SOCIAL]
+    ]
 
     return data

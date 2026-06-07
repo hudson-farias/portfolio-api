@@ -37,14 +37,7 @@ def upgrade() -> None:
         "seniority IS NULL OR seniority IN ('Junior', 'Pleno', 'Senior', 'Lead')",
     )
 
-    op.create_check_constraint(
-        'ck_roles_locale',
-        'roles',
-        "locale IN ('pt', 'en', 'todos')",
-    )
-
 def downgrade() -> None:
-    op.drop_constraint('ck_roles_locale', 'roles', type_='check')
     op.drop_constraint('ck_roles_seniority', 'roles', type_='check')
     op.drop_constraint('uq_roles_title_locale', 'roles', type_='unique')
 

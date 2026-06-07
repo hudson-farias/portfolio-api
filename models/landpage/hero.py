@@ -1,18 +1,14 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
-
-class SocialNetwork(BaseModel):
-    id: int
-    url: str
-    icon: str
+from models.landpage.__base import SocialNetwork
 
 
 class HeroProfile(BaseModel):
     name: str
     roles: List[str]
     location: str
-    email: str
+    email: Optional[str] = 'hudson.farias.dev@gmail.com'
     about: str
     available: bool
 

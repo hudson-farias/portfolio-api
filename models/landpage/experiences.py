@@ -1,6 +1,9 @@
 from pydantic import BaseModel
 from typing import List, Literal, Optional
 
+from models.landpage.__base import SocialNetwork
+
+
 ContractType = Literal['CLT', 'PJ', 'FREELANCER']
 
 

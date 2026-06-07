@@ -1,4 +1,6 @@
-from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.dialects.postgresql import ARRAY
+
 from database import Base
 
 
@@ -8,5 +10,4 @@ class SocialNetworksORM(Base):
     id = Column(Integer, primary_key = True, index = True)
     url = Column(String(150), nullable = False)
     icon = Column(String(100), nullable = False)
-    show_header = Column(Boolean, nullable = False, default = False)
-    show_footer = Column(Boolean, nullable = False, default = False)
+    positions = Column(ARRAY(String), nullable = False, server_default = '{}')

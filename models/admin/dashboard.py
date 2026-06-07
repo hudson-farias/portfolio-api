@@ -41,8 +41,7 @@ class DashboardSocialNetwork(BaseModel):
     id: int
     url: str
     icon: str
-    show_header: bool
-    show_footer: bool
+    positions: List[str]
 
 
 class DashboardResponse(BaseModel):
@@ -50,5 +49,4 @@ class DashboardResponse(BaseModel):
     experiences: List[DashboardExperience] = []
     projects: List[DashboardProject] = []
     skills: List[DashboardSkillCategory] = []
-    social_networks_header: List[DashboardSocialNetwork] = []
-    social_networks_footer: List[DashboardSocialNetwork] = []
+    social_networks: List[DashboardSocialNetwork] = []

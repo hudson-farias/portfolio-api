@@ -10,7 +10,7 @@ from env import POSTGRES_HOST, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_PORT, 
 
 db_url = f'postgresql+asyncpg://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}'
 
-engine = create_async_engine(db_url, pool_pre_ping = True, echo = True)
+engine = create_async_engine(db_url, pool_pre_ping = True, echo = False)
 Session = sessionmaker(engine, expire_on_commit = False, class_ = AsyncSession, future = True)
 
 
