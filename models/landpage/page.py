@@ -6,12 +6,14 @@ from models.landpage.experiences import ExperiencesResponse
 from models.landpage.hero import HeroResponse
 from models.landpage.projects import ProjectsResponse
 from models.landpage.skills import SkillsResponse
+from models.landpage.tools import ToolsResponse
 
 
 class PageResponse(BaseModel):
     hero: HeroResponse
     about: AboutResponse
     skills: SkillsResponse
+    tools: ToolsResponse
     experiences: ExperiencesResponse
     projects: ProjectsResponse
     contact: ContactResponse

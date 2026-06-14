@@ -10,3 +10,4 @@ from models.landpage.metadata import *
 from models.landpage.page import *
 from models.landpage.projects import *
 from models.landpage.skills import *
+from models.landpage.tools import *

@@ -9,6 +9,7 @@ from database.skills import SkillsORM
 from database.skills_categories import SkillsCategoriesORM
 from database.projects import ProjectsORM
 from database.social_networks import SocialNetworksORM
+from database.tools import ToolsORM
 
 from models.admin.dashboard import *
 
@@ -19,11 +20,12 @@ PREVIEW_EXPERIENCES = 3
 PREVIEW_PROJECTS = 3
 PREVIEW_SKILLS = 3
 PREVIEW_SOCIAL = 3
+PREVIEW_TOOLS = 3
 
 
 @router.get('', status_code = 200, response_model = DashboardResponse)
 async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
-    data = DashboardResponse(counts = DashboardCounts(experiences = 0, skills = 0, projects = 0, social_networks = 0))
+    data = DashboardResponse(counts = DashboardCounts(experiences = 0, skills = 0, projects = 0, social_networks = 0, tools = 0))
 
     async with ExperiencesORM() as orm:
         options = selectinload(ExperiencesORM.role)
@@ -80,6 +82,15 @@ async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
     data.social_networks = [
         DashboardSocialNetwork(**item.dict())
         for item in social_networks[:PREVIEW_SOCIAL]
+    ]
+
+    async with ToolsORM() as orm: tools = await orm.find_many()
+    tools.sort(key = lambda tool: (tool.sort_order, tool.id))
+
+    data.counts.tools = len(tools)
+    data.tools = [
+        DashboardTool(**item.dict())
+        for item in tools[:PREVIEW_TOOLS]
     ]
 
     return data

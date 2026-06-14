@@ -7,6 +7,7 @@ class DashboardCounts(BaseModel):
     skills: int
     projects: int
     social_networks: int
+    tools: int
 
 
 class DashboardExperience(BaseModel):
@@ -44,9 +45,17 @@ class DashboardSocialNetwork(BaseModel):
     positions: List[str]
 
 
+class DashboardTool(BaseModel):
+    id: int
+    name: str
+    icon: str
+    url: Optional[str] = None
+
+
 class DashboardResponse(BaseModel):
     counts: DashboardCounts
     experiences: List[DashboardExperience] = []
     projects: List[DashboardProject] = []
     skills: List[DashboardSkillCategory] = []
     social_networks: List[DashboardSocialNetwork] = []
+    tools: List[DashboardTool] = []

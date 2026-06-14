@@ -1,4 +1,5 @@
 from database.social_networks import SocialNetworksORM
+from database.tools import ToolsORM
 from database.skills_categories import SkillsCategoriesORM
 from database.skills import SkillsORM
 from database.experiences import ExperiencesORM
@@ -22,6 +23,7 @@ class Landpage:
     __projects = None
     __profile = None
     __social_networks = None
+    __tools = None
 
 
     async def __fetch_social_networks(self):
@@ -173,6 +175,19 @@ class Landpage:
         return SkillsResponse(skills = await self.__fetch_skills())
 
 
+    async def __fetch_tools(self):
+        if not self.__tools:
+            async with ToolsORM() as orm: rows = await orm.find_many()
+            rows.sort(key = lambda tool: (tool.sort_order, tool.id))
+            self.__tools = [Tool(**row.dict()) for row in rows]
+
+        return self.__tools
+
+
+    async def tools(self):
+        return ToolsResponse(tools = await self.__fetch_tools())
+
+
     async def experiences(self):
         return ExperiencesResponse(experiences = await self.__fetch_experiences())
 
@@ -229,13 +244,14 @@ class Landpage:
     async def page(self):
         await self.__fetch_social_networks()
 
-        about, contact, experiences, hero, projects, skills = await gather(
+        about, contact, experiences, hero, projects, skills, tools = await gather(
             self.about(),
             self.contact(),
             self.experiences(),
             self.hero(),
             self.projects(),
             self.skills(),
+            self.tools(),
         )
 
         return PageResponse(
@@ -245,4 +261,5 @@ class Landpage:
             hero = hero,
             projects = projects,
             skills = skills,
+            tools = tools,
         )

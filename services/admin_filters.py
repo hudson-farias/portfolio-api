@@ -7,6 +7,7 @@ from database.experiences import ExperiencesORM
 from database.skills import SkillsORM
 from database.skills_categories import SkillsCategoriesORM
 from database.social_networks import SocialNetworksORM
+from database.tools import ToolsORM
 
 
 def _exact_filters(**kwargs):
@@ -86,3 +87,14 @@ async def filter_social_networks(q: Optional[str] = None, position: Optional[str
             q_columns = ['url', 'icon'],
             array_contains = array_contains,
         )
+
+
+async def filter_tools(q: Optional[str] = None):
+    async with ToolsORM() as orm:
+        tools = await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['name', 'icon', 'url'],
+        )
+
+    tools.sort(key = lambda tool: (tool.sort_order, tool.id))
+    return tools
