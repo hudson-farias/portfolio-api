@@ -11,7 +11,6 @@ class AboutProfile(BaseModel):
 class Stats(BaseModel):
     years_experience: int
     projects_count: int
-    clients_count: int
 
 
 class AboutResponse(BaseModel):

@@ -8,4 +8,5 @@ class FooterResponse(BaseModel):
     github: str
     gitlab: str
     linkedin: str
+    career_start: int
     social_networks: List[SocialNetwork] = []

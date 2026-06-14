@@ -20,6 +20,7 @@ class ProfileORM(Base):
     linkedin = Column(String(200), nullable = False)
     github = Column(String(200), nullable = False)
     gitlab = Column(String(200), nullable = False)
+    career_start = Column(Integer, nullable = False, server_default = '2021')
 
     @property
     def whatsapp_url(self):

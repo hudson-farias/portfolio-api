@@ -12,13 +12,8 @@ from services.github import github
 from models.landpage import *
 
 from asyncio import gather
+from datetime import datetime
 
-
-STATS = Stats(
-    years_experience = 5,
-    projects_count = 0,
-    clients_count = 5,
-)
 
 class Landpage:
     __skills = None
@@ -162,15 +157,14 @@ class Landpage:
         await self.__fetch_social_networks()
         profile = await self.__fetch_profile()
         projects = await self.__fetch_projects()
-        experiences = await self.__fetch_experiences()
-        companies_count = len({experience.company for experience in experiences})
+        years_experience = max(0, datetime.now().year - profile.career_start)
 
         return AboutResponse(
             profile = AboutProfile(about_extended = profile.about_me),
-            stats = STATS.model_copy(update = {
-                'projects_count': len(projects),
-                'clients_count': companies_count or STATS.clients_count,
-            }),
+            stats = Stats(
+                years_experience = years_experience,
+                projects_count = len(projects),
+            ),
             linkedin = profile.linkedin,
             social_networks = self.__social_networks.get('about') or [],
             profile_name = profile.name,
@@ -227,6 +221,7 @@ class Landpage:
                 github = profile.github,
                 gitlab = profile.gitlab,
                 linkedin = profile.linkedin,
+                career_start = profile.career_start,
                 social_networks = self.__social_networks.get('footer') or [],
             ),
             contact = contact,
