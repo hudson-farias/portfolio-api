@@ -93,19 +93,42 @@ class Landpage:
 
     async def __fetch_projects(self):
         if not self.__projects:
-            async with ProjectsORM() as orm: projects = await orm.find_many()
-            projects_ids = [project.git_id for project in projects]
+            async with ProjectsORM() as orm: projects_db = await orm.find_many()
+            projects_mapper = {project.git_id: project for project in projects_db}
+            projects_ids = set(projects_mapper.keys())
 
             projects = github(True)
 
             self.__projects = []
 
             for project in projects:
-                project_dto = Project(**project)
-                project_dto.name = project_dto.name.replace('-', ' ').title()
-                project_dto.html_url = None if project['private'] else project_dto.html_url
+                git_id = project['id']
+                if git_id not in projects_ids: continue
 
-                if project['id'] in projects_ids: self.__projects.append(project_dto)
+                db = projects_mapper[git_id]
+                gh_name = project['name'].replace('-', ' ').title()
+                gh_description = project.get('description') or ''
+
+                self.__projects.append(Project(
+                    id = git_id,
+                    name = db.title or gh_name,
+                    description = db.description or gh_description,
+                    image_url = db.image_url,
+                    homepage = db.live_url or project.get('homepage') or None,
+                    html_url = db.repo_url or (None if project.get('private') else project.get('html_url')),
+                ))
+
+            for db in projects_db:
+                if db.git_id >= 0: continue
+
+                self.__projects.append(Project(
+                    id = db.git_id,
+                    name = db.title or 'Projeto externo',
+                    description = db.description or '',
+                    image_url = db.image_url,
+                    homepage = db.live_url,
+                    html_url = db.repo_url,
+                ))
 
         return self.__projects
 
