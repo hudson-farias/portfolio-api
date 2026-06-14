@@ -1,10 +1,8 @@
-from sqlalchemy import insert, update, delete, and_, text
+from sqlalchemy import insert, update, delete, and_, or_
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from sqlalchemy.sql import func
 
-from math import ceil
 from env import postgres_url
 
 
@@ -111,26 +109,36 @@ class Base(DeclarativeBase):
         return data
 
 
-    async def count_pages(self, perpage: int, **kwargs):
+    async def find_filtered(self, options = None, limit: int = None, page: int = None, q: str = None, q_columns: list = None, array_contains: dict = None, **kwargs):
         async with Session() as db:
-            count_stmt = select(func.count(getattr(self.__class__, self.__class__.primary_key))).filter_by(**kwargs)
-            count_result = await db.execute(count_stmt)
-            return ceil(count_result.scalar() / perpage)
+            stmt = select(self.__class__)
 
+            if kwargs:
+                stmt = stmt.filter_by(**kwargs)
 
-    async def find_many_regex(self, **kwargs):
-        async with Session() as db:
-            col, re = list(kwargs.items())[0]
+            if q and q_columns:
+                term = f'%{q}%'
+                stmt = stmt.where(or_(*[
+                    getattr(self.__class__, column).ilike(term)
+                    for column in q_columns
+                    if hasattr(self.__class__, column)
+                ]))
 
-            stmt = select(self.__class__).filter(text(f'{col} REGEXP "{re}"'))
+            if array_contains:
+                for column, value in array_contains.items():
+                    if value and hasattr(self.__class__, column):
+                        stmt = stmt.where(getattr(self.__class__, column).contains([value]))
+
+            if options:
+                stmt = stmt.options(options)
+            if limit:
+                stmt = stmt.limit(limit)
+            if page and limit:
+                stmt = stmt.offset(limit * (page - 1))
+
+            stmt = stmt.order_by(getattr(self.__class__, self.__class__.primary_key))
+
             result = await db.execute(stmt)
             data = result.scalars().all()
 
         return data
-
-
-    async def find_or_new(self, options = None, **kwargs):
-        find = await self.find_one(options, **kwargs)
-        if find: return find
-
-        return await self.create(**kwargs)

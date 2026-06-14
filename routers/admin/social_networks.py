@@ -1,23 +1,23 @@
-from fastapi import Depends
+from fastapi import Depends, Query
 from routers.admin import router, has_authenticated
 
 from database.social_networks import SocialNetworksORM
 
 from models.admin.social_networks import *
 
-from typing import List
+from services.admin_filters import filter_social_networks
+
+from typing import List, Optional
 
 
-async def response_data() -> List[SocialNetwork]:
-    async with SocialNetworksORM() as orm: social_networks = await orm.find_many()
-    data = [SocialNetwork(**social_network.dict()) for social_network in social_networks]
-
-    return data
+async def response_data(q: Optional[str] = None, position: Optional[str] = None):
+    social_networks = await filter_social_networks(q, position)
+    return [SocialNetwork(**social_network.dict()) for social_network in social_networks]
 
 
 @router.get('/social_networks', status_code = 200, response_model = List[SocialNetwork])
-async def get():
-    return await response_data()
+async def get(q: Optional[str] = Query(None), position: Optional[str] = Query(None)):
+    return await response_data(q, position)
 
 
 @router.post('/social_networks', status_code = 201, response_model = List[SocialNetwork])
@@ -30,7 +30,6 @@ async def post(params: SocialNetworkDTO, _: bool = Depends(has_authenticated)):
 async def put(social_network_id: int, params: SocialNetworkDTO, _: bool = Depends(has_authenticated)):
     async with SocialNetworksORM() as orm: await orm.update(id = social_network_id, **params.dict())
     return await response_data()
-
 
 
 @router.delete('/social_networks/{social_network_id}', status_code = 201, response_model = List[SocialNetwork])

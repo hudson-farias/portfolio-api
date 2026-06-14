@@ -1,4 +1,4 @@
-from fastapi import Depends
+from fastapi import Depends, Query
 from routers.admin import router, partial_authenticated, has_authenticated
 
 from database.roles import RolesORM
@@ -6,18 +6,14 @@ from database.roles import RolesORM
 from models.admin.roles import *
 
 from services.roles import experience_counts
+from services.admin_filters import filter_roles
 
-from typing import List
+from typing import List, Optional
 
 
-async def response_data(is_auth: bool) -> List[Role]:
+async def response_data(is_auth: bool, q: Optional[str] = None, locale: Optional[str] = None, seniority: Optional[Seniority] = None, show: Optional[bool] = None, active: Optional[bool] = None, featured: Optional[bool] = None):
     counts = await experience_counts()
-
-    async with RolesORM() as orm:
-        if is_auth: roles = await orm.find_many()
-        else: roles = await orm.find_many(active = True)
-
-    roles.sort(key = lambda role: (role.sort_order, role.id))
+    roles = await filter_roles(is_auth, q, locale, seniority, show, active, featured)
 
     return [
         Role(
@@ -29,8 +25,8 @@ async def response_data(is_auth: bool) -> List[Role]:
 
 
 @router.get('/roles', status_code = 200, response_model = List[Role])
-async def get(is_auth: bool = Depends(partial_authenticated)):
-    return await response_data(is_auth)
+async def get(is_auth: bool = Depends(partial_authenticated), q: Optional[str] = Query(None), locale: Optional[str] = Query(None), seniority: Optional[Seniority] = Query(None), show: Optional[bool] = Query(None), active: Optional[bool] = Query(None), featured: Optional[bool] = Query(None)):
+    return await response_data(is_auth, q, locale, seniority, show, active, featured)
 
 
 @router.post('/roles', status_code = 201, response_model = List[Role])

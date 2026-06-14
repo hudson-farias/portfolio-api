@@ -3,6 +3,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 from io import BytesIO
 
+from sqlalchemy.orm import selectinload
+
 from database.skills_categories import SkillsCategoriesORM
 from database.experiences import ExperiencesORM
 
@@ -57,10 +59,11 @@ class Curriculum:
     async def __experience(self):
         self.__add('<b>Experiência Profissional</b>', 'SectionTitle')
 
-        async with ExperiencesORM() as orm: experiences = await orm.find_many(hidden = False)
+        async with ExperiencesORM() as orm:
+            experiences = await orm.find_many(hidden = False, options = selectinload(ExperiencesORM.role))
 
         for experience in experiences[::-1]:
-            title = f'{experience.company} | {experience.role}'
+            title = f'{experience.company} | {experience.role_title or ""}'
             # title = f'{experience.company} | {experience.role}' if experience.id != 3 else f'{experience.role}'
             self.__add(f'<b>{title} | {experience.period} </b>', 'SectionSubtitle')
             self.__add(experience.description)

@@ -1,7 +1,7 @@
 ---
-description: Convenções Python do portfolio-api (type hints)
+description: Convenções Python do portfolio-api (type hints e assinaturas)
 globs: "**/*.py"
-alwaysApply: false
+alwaysApply: true
 ---
 
 # Python — portfolio-api
@@ -26,3 +26,45 @@ class Profile(BaseModel):
 ```
 
 Para tipos opcionais, preferir `Optional[T]` de `typing` em vez de `T | None`.
+
+## Assinaturas de funções
+
+**Obrigatório:** manter todos os parâmetros na mesma linha da definição (`def` / `async def`). Não quebrar linha nos params, mesmo com muitos argumentos ou `Query`/`Depends`.
+
+```python
+# ❌ EVITAR
+async def response_data(
+    is_auth: bool,
+    q: Optional[str] = None,
+):
+
+async def get(
+    is_auth: bool = Depends(partial_authenticated),
+    q: Optional[str] = Query(None),
+):
+
+# ✅ OK
+async def response_data(is_auth: bool, q: Optional[str] = None):
+async def get(is_auth: bool = Depends(partial_authenticated), q: Optional[str] = Query(None)):
+```
+
+Vale para funções, métodos de classe e endpoints FastAPI.
+
+## Services vs lógica na rota
+
+**Priorizar lógica no próprio arquivo da rota** (`routers/admin/*.py`) — ORM, montagem de response, helpers locais (`response_data`, etc.).
+
+**Não criar service** (`services/*.py`) sem pedido explícito. Services existentes (ex.: `admin_filters`, `roles_map`) só quando já estão no projeto ou o usuário pedir.
+
+```python
+# ✅ OK — buscar roles e montar response dentro da rota
+async def response_data(is_auth: bool, q: Optional[str] = None):
+    experiences = await filter_experiences(is_auth, q)
+    async with RolesORM() as orm: roles = await orm.find_many()
+    roles = [ExperienceRole(id = role.id, title = role.title, locale = role.locale, active = role.active) for role in roles]
+    return ExperiencesResponse(experiences = [...], roles = roles)
+
+# ❌ EVITAR — service novo só para 3 linhas usadas numa rota
+# services/experiences.py
+async def experience_roles(): ...
+```

@@ -93,7 +93,6 @@ async def get_projects(is_auth: bool = Depends(partial_authenticated)):
     return await response_data(is_auth)
 
 
-
 @router.post('/projects/external', status_code = 201)
 async def post_external_project(params: ProjectPayload, is_auth: bool = Depends(has_authenticated)):
     if not params.repo_url: raise HTTPException(status_code = 422, detail = 'repo_url é obrigatório para projetos externos')

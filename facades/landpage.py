@@ -6,13 +6,13 @@ from database.projects import ProjectsORM
 from database.profile import ProfileORM
 from database.roles import RolesORM
 
-from services.experiences import roles_map, role_title
 from services.github import github
 
 from models.landpage import *
 
 from asyncio import gather
 from datetime import datetime
+from sqlalchemy.orm import selectinload
 
 
 class Landpage:
@@ -57,15 +57,13 @@ class Landpage:
 
     async def __fetch_experiences(self):
         if not self.__experiences:
-            titles = await roles_map()
-
-            async with ExperiencesORM() as orm: experiences = await orm.find_many(hidden = False)
+            async with ExperiencesORM() as orm: experiences = await orm.find_many(hidden = False, options = selectinload(ExperiencesORM.role))
 
             self.__experiences = [Experience(
                 id = experience.id,
                 company = experience.company,
                 period = experience.period,
-                role = role_title(experience.role_id, titles) or '',
+                role = experience.role_title or '',
                 contract_type = experience.contract_type,
                 description = experience.description,
             ) for experience in experiences]
