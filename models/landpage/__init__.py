@@ -11,3 +11,5 @@ from models.landpage.page import *
 from models.landpage.projects import *
 from models.landpage.skills import *
 from models.landpage.tools import *
+from models.landpage.frameworks import *
+from models.landpage.databases import *

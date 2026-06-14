@@ -1,6 +1,9 @@
 from database.social_networks import SocialNetworksORM
 from database.tools import ToolsORM
-from database.skills_categories import SkillsCategoriesORM
+from database.languages import LanguagesORM
+from database.frameworks import FrameworksORM
+from database.databases import DatabasesORM
+from database.language_frameworks import LanguageFrameworksORM
 from database.skills import SkillsORM
 from database.experiences import ExperiencesORM
 from database.projects import ProjectsORM
@@ -10,6 +13,9 @@ from database.roles import RolesORM
 from services.github import github
 
 from models.landpage import *
+
+from models.landpage.frameworks import Framework as LandpageFramework, LandpageLanguageRef, FrameworksResponse
+from models.landpage.databases import Database as LandpageDatabase, DatabasesResponse
 
 from asyncio import gather
 from datetime import datetime
@@ -24,6 +30,8 @@ class Landpage:
     __profile = None
     __social_networks = None
     __tools = None
+    __frameworks = None
+    __databases = None
 
 
     async def __fetch_social_networks(self):
@@ -44,15 +52,8 @@ class Landpage:
 
     async def __fetch_skills(self):
         if not self.__skills:
-            self.__skills = []
-
-            async with SkillsCategoriesORM() as orm: skills_categories = await orm.find_many()
-            async with SkillsORM() as orm:
-                for category in skills_categories:
-                    skills = await orm.find_many(skill_category_id = category.id)
-                    skill_data = SkillCategory(title = category.title, skills = [Skill(**skill.dict()) for skill in skills],)
-
-                    self.__skills.append(skill_data)
+            async with SkillsORM() as orm: skills = await orm.find_many()
+            self.__skills = [Skill(**skill.dict()) for skill in skills]
 
         return self.__skills
 
@@ -186,6 +187,63 @@ class Landpage:
 
     async def tools(self):
         return ToolsResponse(tools = await self.__fetch_tools())
+
+
+    async def __fetch_relations(self):
+        async with LanguageFrameworksORM() as orm: relations = await orm.find_many()
+
+        by_framework = {}
+        by_language = {}
+
+        for relation in relations:
+            by_framework.setdefault(relation.framework_id, []).append(relation.language_id)
+            by_language.setdefault(relation.language_id, []).append(relation.framework_id)
+
+        return by_framework, by_language
+
+
+    async def __fetch_frameworks(self):
+        if not self.__frameworks:
+            async with FrameworksORM() as orm: rows = await orm.find_many()
+            rows.sort(key = lambda framework: (framework.sort_order, framework.id))
+
+            async with LanguagesORM() as orm: language_rows = await orm.find_many()
+            languages_by_id = {row.id: row for row in language_rows}
+
+            by_framework, by_language = await self.__fetch_relations()
+            self.__frameworks = []
+
+            for row in rows:
+                linked = [
+                    LandpageLanguageRef(
+                        id = language_rows.id,
+                        name = language_rows.name,
+                        icon = language_rows.icon,
+                    )
+                    for language_id in by_framework.get(row.id, [])
+                    if (language_rows := languages_by_id.get(language_id))
+                ]
+                linked.sort(key = lambda item: item.name.lower())
+                self.__frameworks.append(LandpageFramework(**row.dict(), languages = linked))
+
+        return self.__frameworks
+
+
+    async def frameworks(self):
+        return FrameworksResponse(frameworks = await self.__fetch_frameworks())
+
+
+    async def __fetch_databases(self):
+        if not self.__databases:
+            async with DatabasesORM() as orm: rows = await orm.find_many()
+            rows.sort(key = lambda database: (database.sort_order, database.id))
+            self.__databases = [LandpageDatabase(**row.dict()) for row in rows]
+
+        return self.__databases
+
+
+    async def databases(self):
+        return DatabasesResponse(databases = await self.__fetch_databases())
 
 
     async def experiences(self):

@@ -8,6 +8,9 @@ class DashboardCounts(BaseModel):
     projects: int
     social_networks: int
     tools: int
+    languages: int
+    frameworks: int
+    databases: int
 
 
 class DashboardExperience(BaseModel):
@@ -23,11 +26,6 @@ class DashboardSkill(BaseModel):
     id: int
     name: str
     icon: str
-
-
-class DashboardSkillCategory(BaseModel):
-    title: str
-    skills: List[DashboardSkill] = []
 
 
 class DashboardProject(BaseModel):
@@ -52,10 +50,33 @@ class DashboardTool(BaseModel):
     url: Optional[str] = None
 
 
+class DashboardLanguage(BaseModel):
+    id: int
+    name: str
+    icon: str
+
+
+class DashboardFramework(BaseModel):
+    id: int
+    name: str
+    icon: str
+    scope: Optional[str] = None
+
+
+class DashboardDatabase(BaseModel):
+    id: int
+    name: str
+    icon: str
+    scope: Optional[str] = None
+
+
 class DashboardResponse(BaseModel):
     counts: DashboardCounts
     experiences: List[DashboardExperience] = []
     projects: List[DashboardProject] = []
-    skills: List[DashboardSkillCategory] = []
+    skills: List[DashboardSkill] = []
     social_networks: List[DashboardSocialNetwork] = []
     tools: List[DashboardTool] = []
+    languages: List[DashboardLanguage] = []
+    frameworks: List[DashboardFramework] = []
+    databases: List[DashboardDatabase] = []

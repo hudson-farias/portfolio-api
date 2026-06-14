@@ -6,10 +6,12 @@ from routers.admin import router, partial_authenticated
 
 from database.experiences import ExperiencesORM
 from database.skills import SkillsORM
-from database.skills_categories import SkillsCategoriesORM
 from database.projects import ProjectsORM
 from database.social_networks import SocialNetworksORM
 from database.tools import ToolsORM
+from database.languages import LanguagesORM
+from database.frameworks import FrameworksORM
+from database.databases import DatabasesORM
 
 from models.admin.dashboard import *
 
@@ -21,11 +23,14 @@ PREVIEW_PROJECTS = 3
 PREVIEW_SKILLS = 3
 PREVIEW_SOCIAL = 3
 PREVIEW_TOOLS = 3
+PREVIEW_LANGUAGES = 3
+PREVIEW_FRAMEWORKS = 3
+PREVIEW_DATABASES = 3
 
 
 @router.get('', status_code = 200, response_model = DashboardResponse)
 async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
-    data = DashboardResponse(counts = DashboardCounts(experiences = 0, skills = 0, projects = 0, social_networks = 0, tools = 0))
+    data = DashboardResponse(counts = DashboardCounts(experiences = 0, skills = 0, projects = 0, social_networks = 0, tools = 0, languages = 0, frameworks = 0, databases = 0))
 
     async with ExperiencesORM() as orm:
         options = selectinload(ExperiencesORM.role)
@@ -46,16 +51,12 @@ async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
     ]
 
     async with SkillsORM() as orm: skills = await orm.find_many()
-    async with SkillsCategoriesORM() as orm: categories = await orm.find_many()
 
     data.counts.skills = len(skills)
-
-    for category in categories:
-        category_skills = [skill for skill in skills if skill.skill_category_id == category.id]
-        data.skills.append(DashboardSkillCategory(
-            title = category.title,
-            skills = [DashboardSkill(id = skill.id, name = skill.name, icon = skill.icon) for skill in category_skills[:PREVIEW_SKILLS]],
-        ))
+    data.skills = [
+        DashboardSkill(id = skill.id, name = skill.name, icon = skill.icon)
+        for skill in skills[:PREVIEW_SKILLS]
+    ]
 
     async with ProjectsORM() as orm: db_projects = await orm.find_many()
     projects_ids = [project.git_id for project in db_projects]
@@ -91,6 +92,33 @@ async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
     data.tools = [
         DashboardTool(**item.dict())
         for item in tools[:PREVIEW_TOOLS]
+    ]
+
+    async with LanguagesORM() as orm: languages = await orm.find_many()
+    languages.sort(key = lambda language: (language.sort_order, language.id))
+
+    data.counts.languages = len(languages)
+    data.languages = [
+        DashboardLanguage(**item.dict())
+        for item in languages[:PREVIEW_LANGUAGES]
+    ]
+
+    async with FrameworksORM() as orm: frameworks = await orm.find_many()
+    frameworks.sort(key = lambda framework: (framework.sort_order, framework.id))
+
+    data.counts.frameworks = len(frameworks)
+    data.frameworks = [
+        DashboardFramework(**item.dict())
+        for item in frameworks[:PREVIEW_FRAMEWORKS]
+    ]
+
+    async with DatabasesORM() as orm: databases = await orm.find_many()
+    databases.sort(key = lambda database: (database.sort_order, database.id))
+
+    data.counts.databases = len(databases)
+    data.databases = [
+        DashboardDatabase(**item.dict())
+        for item in databases[:PREVIEW_DATABASES]
     ]
 
     return data

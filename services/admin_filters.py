@@ -5,9 +5,11 @@ from sqlalchemy.orm import selectinload
 from database.roles import RolesORM
 from database.experiences import ExperiencesORM
 from database.skills import SkillsORM
-from database.skills_categories import SkillsCategoriesORM
 from database.social_networks import SocialNetworksORM
 from database.tools import ToolsORM
+from database.languages import LanguagesORM
+from database.frameworks import FrameworksORM
+from database.databases import DatabasesORM
 
 
 def _exact_filters(**kwargs):
@@ -62,20 +64,12 @@ async def filter_experiences(is_auth: bool, q: Optional[str] = None, role_id: Op
         )
 
 
-async def filter_skills(q: Optional[str] = None, skill_category_id: Optional[int] = None):
-    filters = _exact_filters(skill_category_id = skill_category_id)
-
+async def filter_skills(q: Optional[str] = None):
     async with SkillsORM() as orm:
-        skills = await orm.find_filtered(
+        return await orm.find_filtered(
             q = q.strip() if q else None,
             q_columns = ['name', 'icon'],
-            **filters,
         )
-
-    async with SkillsCategoriesORM() as orm:
-        categories = await orm.find_many()
-
-    return skills, categories
 
 
 async def filter_social_networks(q: Optional[str] = None, position: Optional[str] = None):
@@ -98,3 +92,36 @@ async def filter_tools(q: Optional[str] = None):
 
     tools.sort(key = lambda tool: (tool.sort_order, tool.id))
     return tools
+
+
+async def filter_languages(q: Optional[str] = None):
+    async with LanguagesORM() as orm:
+        languages = await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['name', 'icon'],
+        )
+
+    languages.sort(key = lambda language: (language.sort_order, language.id))
+    return languages
+
+
+async def filter_frameworks(q: Optional[str] = None):
+    async with FrameworksORM() as orm:
+        frameworks = await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['name', 'icon', 'scope'],
+        )
+
+    frameworks.sort(key = lambda framework: (framework.sort_order, framework.id))
+    return frameworks
+
+
+async def filter_databases(q: Optional[str] = None):
+    async with DatabasesORM() as orm:
+        databases = await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['name', 'icon', 'scope'],
+        )
+
+    databases.sort(key = lambda database: (database.sort_order, database.id))
+    return databases

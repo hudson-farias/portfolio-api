@@ -1,7 +1,6 @@
 from fastapi import Depends, Query
 from routers.admin import router, has_authenticated
 
-from database.skills_categories import SkillsCategoriesORM
 from database.skills import SkillsORM
 
 from models.admin.skills import *
@@ -11,20 +10,14 @@ from services.admin_filters import filter_skills
 from typing import Optional
 
 
-async def response_data(q: Optional[str] = None, skill_category_id: Optional[int] = None):
-    skills, skills_categories = await filter_skills(q, skill_category_id)
-
-    data = SkillsResponse()
-    categories_hash = {cat.id: cat.title for cat in skills_categories}
-    data.skills = [Skill(**skill.dict(), skill_category_name = categories_hash[skill.skill_category_id]) for skill in skills]
-    data.categories = [SkillCategory(**cat.dict()) for cat in skills_categories]
-
-    return data
+async def response_data(q: Optional[str] = None):
+    skills = await filter_skills(q)
+    return SkillsResponse(skills = [Skill(**skill.dict()) for skill in skills])
 
 
 @router.get('/skills', status_code = 200, response_model = SkillsResponse)
-async def get(q: Optional[str] = Query(None), skill_category_id: Optional[int] = Query(None)):
-    return await response_data(q, skill_category_id)
+async def get(q: Optional[str] = Query(None)):
+    return await response_data(q)
 
 
 @router.post('/skills', status_code = 201, response_model = SkillsResponse)
