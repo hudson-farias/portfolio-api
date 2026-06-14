@@ -17,5 +17,6 @@ class Stats(BaseModel):
 class AboutResponse(BaseModel):
     profile: AboutProfile
     stats: Stats
+    linkedin: str
     social_networks: List[SocialNetwork] = []
     profile_name: str

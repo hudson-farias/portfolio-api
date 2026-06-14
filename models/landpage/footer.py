@@ -5,4 +5,7 @@ from models.landpage.__base import SocialNetwork
 
 
 class FooterResponse(BaseModel):
+    github: str
+    gitlab: str
+    linkedin: str
     social_networks: List[SocialNetwork] = []

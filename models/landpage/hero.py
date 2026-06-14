@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List
 
 from models.landpage.__base import SocialNetwork
 
@@ -8,7 +8,7 @@ class HeroProfile(BaseModel):
     name: str
     roles: List[str]
     location: str
-    email: Optional[str] = 'hudson.farias.dev@gmail.com'
+    email: str
     about: str
     available: bool
 

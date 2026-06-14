@@ -8,3 +8,8 @@ class Profile(BaseModel):
     about_me: str
     location: str = ''
     available: bool = True
+    email: str
+    whatsapp: str
+    linkedin: str
+    github: str
+    gitlab: str

@@ -1,0 +1,28 @@
+---
+description: Convenções Python do portfolio-api (type hints)
+globs: "**/*.py"
+alwaysApply: false
+---
+
+# Python — portfolio-api
+
+## Type hints
+
+**Não usar anotação de retorno** (`-> ...`) em funções, métodos ou properties. O `->` atrapalha o theming do editor.
+
+Permitido: type hints em **parâmetros**, **atributos de classe** e **variáveis**.
+
+```python
+# ❌ EVITAR — return hint
+def whatsapp_url(self) -> Optional[str]:
+async def response_data() -> Profile:
+
+# ✅ OK — parâmetro, atributo, variável
+def _whatsapp_digits(value: str):
+    digits: str = re.sub(r'\D', '', value)
+
+class Profile(BaseModel):
+    email: Optional[str] = None
+```
+
+Para tipos opcionais, preferir `Optional[T]` de `typing` em vez de `T | None`.

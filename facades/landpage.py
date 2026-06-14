@@ -3,7 +3,7 @@ from database.skills_categories import SkillsCategoriesORM
 from database.skills import SkillsORM
 from database.experiences import ExperiencesORM
 from database.projects import ProjectsORM
-from database.profiles import ProfilesORM
+from database.profile import ProfileORM
 from database.roles import RolesORM
 
 from services.experiences import roles_map, role_title
@@ -135,7 +135,7 @@ class Landpage:
 
     async def __fetch_profile(self):
         if not self.__profile:
-            async with ProfilesORM() as orm: self.__profile = await orm.find_one()
+            async with ProfileORM() as orm: self.__profile = await orm.find_one()
 
         return self.__profile
 
@@ -150,6 +150,7 @@ class Landpage:
                 name = profile.name,
                 roles = visible_roles,
                 location = profile.location,
+                email = profile.email,
                 about = profile.summary,
                 available = profile.available,
             ),
@@ -170,6 +171,7 @@ class Landpage:
                 'projects_count': len(projects),
                 'clients_count': companies_count or STATS.clients_count,
             }),
+            linkedin = profile.linkedin,
             social_networks = self.__social_networks.get('about') or [],
             profile_name = profile.name,
         )
@@ -192,6 +194,11 @@ class Landpage:
         profile = await self.__fetch_profile()
 
         return ContactResponse(
+            email = profile.email,
+            whatsapp_url = profile.whatsapp_url,
+            linkedin = profile.linkedin,
+            github = profile.github,
+            gitlab = profile.gitlab,
             others = self.__social_networks.get('contact') or [],
             profile_name = profile.name,
         )
@@ -210,12 +217,18 @@ class Landpage:
 
     async def layout(self):
         await self.__fetch_social_networks()
+        profile = await self.__fetch_profile()
 
         hero, contact = await gather(self.hero(), self.contact())
 
         return LayoutResponse(
             hero = hero,
-            footer = FooterResponse(social_networks = self.__social_networks.get('footer') or []),
+            footer = FooterResponse(
+                github = profile.github,
+                gitlab = profile.gitlab,
+                linkedin = profile.linkedin,
+                social_networks = self.__social_networks.get('footer') or [],
+            ),
             contact = contact,
         )
 
