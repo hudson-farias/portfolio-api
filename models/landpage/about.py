@@ -18,3 +18,4 @@ class AboutResponse(BaseModel):
     profile: AboutProfile
     stats: Stats
     social_networks: List[SocialNetwork] = []
+    profile_name: str

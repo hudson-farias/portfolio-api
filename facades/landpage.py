@@ -118,6 +118,7 @@ class Landpage:
 
 
     async def hero(self):
+        await self.__fetch_social_networks()
         profile = await self.__fetch_profile()
         visible_roles = await self.__fetch_roles()
 
@@ -134,13 +135,20 @@ class Landpage:
 
 
     async def about(self):
+        await self.__fetch_social_networks()
         profile = await self.__fetch_profile()
         projects = await self.__fetch_projects()
+        experiences = await self.__fetch_experiences()
+        companies_count = len({experience.company for experience in experiences})
 
         return AboutResponse(
             profile = AboutProfile(about_extended = profile.about_me),
-            stats = STATS.model_copy(update = {'projects_count': len(projects)}),
-            social_networks = self.__social_networks.get('about') or []
+            stats = STATS.model_copy(update = {
+                'projects_count': len(projects),
+                'clients_count': companies_count or STATS.clients_count,
+            }),
+            social_networks = self.__social_networks.get('about') or [],
+            profile_name = profile.name,
         )
 
 
@@ -157,10 +165,39 @@ class Landpage:
 
 
     async def contact(self):
-        return ContactResponse(others = self.__social_networks.get('contact') or [])
+        await self.__fetch_social_networks()
+        profile = await self.__fetch_profile()
+
+        return ContactResponse(
+            others = self.__social_networks.get('contact') or [],
+            profile_name = profile.name,
+        )
 
 
-    async def all(self):
+    async def metadata(self):
+        profile = await self.__fetch_profile()
+        visible_roles = await self.__fetch_roles()
+
+        return MetadataResponse(
+            name = profile.name,
+            roles = visible_roles,
+            about = profile.summary,
+        )
+
+
+    async def layout(self):
+        await self.__fetch_social_networks()
+
+        hero, contact = await gather(self.hero(), self.contact())
+
+        return LayoutResponse(
+            hero = hero,
+            footer = FooterResponse(social_networks = self.__social_networks.get('footer') or []),
+            contact = contact,
+        )
+
+
+    async def page(self):
         await self.__fetch_social_networks()
 
         about, contact, experiences, hero, projects, skills = await gather(
@@ -172,12 +209,11 @@ class Landpage:
             self.skills(),
         )
 
-        return LandpageResponse(
+        return PageResponse(
             about = about,
             contact = contact,
             experiences = experiences,
             hero = hero,
             projects = projects,
             skills = skills,
-            footer = FooterResponse(social_networks = self.__social_networks.get('footer') or [])
         )

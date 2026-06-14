@@ -5,5 +5,8 @@ from models.landpage.contact import *
 from models.landpage.experiences import *
 from models.landpage.footer import *
 from models.landpage.landpage import *
+from models.landpage.layout import *
+from models.landpage.metadata import *
+from models.landpage.page import *
 from models.landpage.projects import *
 from models.landpage.skills import *

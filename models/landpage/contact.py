@@ -7,3 +7,4 @@ from models.landpage.__base import SocialNetwork
 class ContactResponse(BaseModel):
     email: Optional[str] = 'hudson.farias.dev@gmail.com'
     others: List[SocialNetwork] = []
+    profile_name: str

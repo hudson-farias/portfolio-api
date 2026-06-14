@@ -1,3 +1,3 @@
 from fastapi import APIRouter
 
-router = APIRouter(tags = ['landpage'])
+router = APIRouter(prefix = '/landpage', tags = ['landpage'])
