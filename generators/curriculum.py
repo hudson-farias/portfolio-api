@@ -151,6 +151,10 @@ class Curriculum:
         scope_labels = {
             'backend': 'Backend',
             'frontend': 'Frontend',
+            'fullstack': 'Full stack',
+            'mobile': 'Mobile',
+            'automation': 'Automação',
+            'other': 'Outros',
         }
         grouped = {}
 
@@ -171,14 +175,14 @@ class Curriculum:
             if linked:
                 label = f'{framework.name} ({", ".join(linked)})'
 
-            scope_key = framework.scope or 'outros'
+            scope_key = framework.scope or 'other'
             grouped.setdefault(scope_key, []).append(label)
 
         if not grouped: return
 
         self.__add('<b>Frameworks</b>', 'SectionTitle')
 
-        for scope_key in ('backend', 'frontend', 'outros'):
+        for scope_key in ('backend', 'frontend', 'fullstack', 'mobile', 'automation', 'other'):
             items = grouped.get(scope_key)
             if not items: continue
 

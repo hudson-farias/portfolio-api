@@ -4,7 +4,7 @@ from typing import List, Literal, Optional
 from models.admin.languages import Language
 
 
-FrameworkScope = Literal['backend', 'frontend']
+FrameworkScope = Literal['backend', 'frontend', 'fullstack', 'mobile', 'automation', 'other']
 
 
 class FrameworkWriteDTO(BaseModel):

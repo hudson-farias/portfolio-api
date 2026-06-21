@@ -12,7 +12,7 @@ class Framework(BaseModel):
     id: int
     name: str
     icon: str
-    scope: Optional[Literal['backend', 'frontend']] = None
+    scope: Optional[Literal['backend', 'frontend', 'fullstack', 'mobile', 'automation', 'other']] = None
     languages: List[LandpageLanguageRef] = []
 
 
