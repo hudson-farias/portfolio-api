@@ -30,9 +30,24 @@ async def next_sort_order():
     return max(tool.sort_order for tool in tools) + 1
 
 
+async def item_data(tool_id: int):
+    async with ToolsORM() as orm:
+        tool = await orm.find_one(id = tool_id)
+
+    if not tool:
+        raise HTTPException(status_code = 404, detail = 'Ferramenta não encontrada.')
+
+    return Tool(**tool.dict())
+
+
 @router.get('/tools', status_code = 200, response_model = List[Tool])
 async def get(q: Optional[str] = Query(None)):
     return await response_data(q)
+
+
+@router.get('/tools/{tool_id}', status_code = 200, response_model = Tool)
+async def get_one(tool_id: int):
+    return await item_data(tool_id)
 
 
 @router.put('/tools/reorder', status_code = 201, response_model = List[Tool])

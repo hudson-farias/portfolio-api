@@ -1,4 +1,4 @@
-from fastapi import Depends, Query
+from fastapi import Depends, HTTPException, Query
 from routers.admin import router, has_authenticated
 
 from database.social_networks import SocialNetworksORM
@@ -24,9 +24,24 @@ async def response_data(q: Optional[str] = None, position: Optional[str] = None)
     return [SocialNetwork(**social_network.dict()) for social_network in social_networks]
 
 
+async def item_data(social_network_id: int):
+    async with SocialNetworksORM() as orm:
+        social_network = await orm.find_one(id = social_network_id)
+
+    if not social_network:
+        raise HTTPException(status_code = 404, detail = 'Rede social não encontrada.')
+
+    return SocialNetwork(**social_network.dict())
+
+
 @router.get('/social_networks', status_code = 200, response_model = List[SocialNetwork])
 async def get(q: Optional[str] = Query(None), position: Optional[str] = Query(None)):
     return await response_data(q, position)
+
+
+@router.get('/social_networks/{social_network_id}', status_code = 200, response_model = SocialNetwork)
+async def get_one(social_network_id: int):
+    return await item_data(social_network_id)
 
 
 @router.post('/social_networks', status_code = 201, response_model = List[SocialNetwork])

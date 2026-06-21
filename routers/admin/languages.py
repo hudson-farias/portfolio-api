@@ -30,9 +30,24 @@ async def next_sort_order():
     return max(language.sort_order for language in languages) + 1
 
 
+async def item_data(language_id: int):
+    async with LanguagesORM() as orm:
+        language = await orm.find_one(id = language_id)
+
+    if not language:
+        raise HTTPException(status_code = 404, detail = 'Linguagem não encontrada.')
+
+    return Language(**language.dict())
+
+
 @router.get('/languages', status_code = 200, response_model = List[Language])
 async def get(q: Optional[str] = Query(None)):
     return await response_data(q)
+
+
+@router.get('/languages/{language_id}', status_code = 200, response_model = Language)
+async def get_one(language_id: int):
+    return await item_data(language_id)
 
 
 @router.put('/languages/reorder', status_code = 201, response_model = List[Language])

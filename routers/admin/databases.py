@@ -30,9 +30,24 @@ async def next_sort_order():
     return max(database.sort_order for database in databases) + 1
 
 
+async def item_data(database_id: int):
+    async with DatabasesORM() as orm:
+        database = await orm.find_one(id = database_id)
+
+    if not database:
+        raise HTTPException(status_code = 404, detail = 'Banco de dados não encontrado.')
+
+    return Database(**database.dict())
+
+
 @router.get('/databases', status_code = 200, response_model = List[Database])
 async def get(q: Optional[str] = Query(None)):
     return await response_data(q)
+
+
+@router.get('/databases/{database_id}', status_code = 200, response_model = Database)
+async def get_one(database_id: int):
+    return await item_data(database_id)
 
 
 @router.put('/databases/reorder', status_code = 201, response_model = List[Database])

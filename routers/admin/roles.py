@@ -1,4 +1,4 @@
-from fastapi import Depends, Query
+from fastapi import Depends, HTTPException, Query
 from routers.admin import router, partial_authenticated, has_authenticated
 
 from database.roles import RolesORM
@@ -99,6 +99,17 @@ async def response_data(is_auth: bool, q: Optional[str] = None, seniority: Optio
     return [await role_to_model(role, counts) for role in roles]
 
 
+async def item_data(role_id: int, is_auth: bool):
+    async with RolesORM() as orm:
+        role = await orm.find_one(id = role_id)
+
+    if not role or (not is_auth and not role.active):
+        raise HTTPException(status_code = 404, detail = 'Cargo não encontrado.')
+
+    counts = await experience_counts()
+    return await role_to_model(role, counts)
+
+
 async def persist_role(params: RoleDTO, role_id: Optional[int] = None):
     payload = {
         'category': params.category,
@@ -126,6 +137,11 @@ async def persist_role(params: RoleDTO, role_id: Optional[int] = None):
 @router.get('/roles', status_code = 200, response_model = List[Role])
 async def get(is_auth: bool = Depends(partial_authenticated), q: Optional[str] = Query(None), seniority: Optional[Seniority] = Query(None), show: Optional[bool] = Query(None), active: Optional[bool] = Query(None), featured: Optional[bool] = Query(None)):
     return await response_data(is_auth, q, seniority, show, active, featured)
+
+
+@router.get('/roles/{role_id}', status_code = 200, response_model = Role)
+async def get_one(role_id: int, is_auth: bool = Depends(partial_authenticated)):
+    return await item_data(role_id, is_auth)
 
 
 @router.post('/roles', status_code = 201, response_model = List[Role])

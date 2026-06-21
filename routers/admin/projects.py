@@ -112,6 +112,61 @@ def visible_project_dto(db, gh_name: str, gh_description: Optional[str]):
     )
 
 
+def github_option_dto(project):
+    git_id = project['id']
+    name = project['name'].replace('-', ' ').title()
+    homepage = project.get('homepage') or None
+    description = project.get('description') or None
+
+    return Project(
+        git_id = git_id,
+        name = name,
+        html_url = project.get('html_url') or '',
+        homepage = homepage,
+        description = description,
+        **github_meta(project),
+    )
+
+
+def visible_project_from_github(db, project):
+    git_id = project['id']
+    name = project['name'].replace('-', ' ').title()
+    description = project.get('description') or None
+    project_dto = visible_project_dto(db, name, description)
+    project_dto.private = bool(project.get('private'))
+    project_dto.language = project.get('language')
+    project_dto.stars = project.get('stargazers_count') or 0
+    project_dto.forks = project.get('forks_count') or 0
+    project_dto.updated_at = project.get('updated_at')
+    project_dto.archived = bool(project.get('archived'))
+    project_dto.fork = bool(project.get('fork'))
+    return project_dto
+
+
+async def item_data(git_id: int, is_auth: bool):
+    async with ProjectsORM() as orm:
+        db = await orm.find_one(git_id = git_id)
+
+    if db:
+        if git_id < 0:
+            return external_project_dto(db)
+
+        for project in github(is_auth):
+            if project['id'] != git_id:
+                continue
+            return visible_project_from_github(db, project)
+
+        return external_project_dto(db)
+
+    if git_id > 0:
+        for project in github(is_auth):
+            if project['id'] != git_id:
+                continue
+            return github_option_dto(project)
+
+    raise HTTPException(status_code = 404, detail = 'Projeto não encontrado.')
+
+
 async def response_data(is_auth: bool):
     async with ProjectsORM() as orm:
         projects_db = await orm.find_many()
@@ -129,25 +184,11 @@ async def response_data(is_auth: bool):
         homepage = project.get('homepage') or None
         description = project.get('description') or None
 
-        project_dto = Project(
-            git_id = git_id,
-            name = name,
-            html_url = project.get('html_url') or '',
-            homepage = homepage,
-            description = description,
-            **github_meta(project),
-        )
+        project_dto = github_option_dto(project)
 
         if git_id in projects_ids:
             db = projects_mapper[git_id]
-            project_dto = visible_project_dto(db, name, description)
-            project_dto.private = bool(project.get('private'))
-            project_dto.language = project.get('language')
-            project_dto.stars = project.get('stargazers_count') or 0
-            project_dto.forks = project.get('forks_count') or 0
-            project_dto.updated_at = project.get('updated_at')
-            project_dto.archived = bool(project.get('archived'))
-            project_dto.fork = bool(project.get('fork'))
+            project_dto = visible_project_from_github(db, project)
             data.visible.append(project_dto)
 
         else: data.options.append(project_dto)
@@ -181,6 +222,11 @@ async def persist_project(git_id: int, params: ProjectPayload):
 @router.get('/projects', status_code = 200, response_model = Projects)
 async def get_projects(is_auth: bool = Depends(partial_authenticated)):
     return await response_data(is_auth)
+
+
+@router.get('/projects/{git_id}', status_code = 200, response_model = Project)
+async def get_project(git_id: int, is_auth: bool = Depends(partial_authenticated)):
+    return await item_data(git_id, is_auth)
 
 
 @router.post('/projects/external', status_code = 201)

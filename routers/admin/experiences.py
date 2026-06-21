@@ -1,4 +1,4 @@
-from fastapi import Depends, Query
+from fastapi import Depends, HTTPException, Query
 from routers.admin import router, partial_authenticated, has_authenticated
 
 from database.experiences import ExperiencesORM
@@ -96,6 +96,16 @@ def experience_to_model(experience):
     )
 
 
+async def item_data(experience_id: int, is_auth: bool):
+    async with ExperiencesORM() as orm:
+        experience = await orm.find_one(id = experience_id)
+
+    if not experience or (not is_auth and experience.hidden):
+        raise HTTPException(status_code = 404, detail = 'Experiência não encontrada.')
+
+    return experience_to_model(experience)
+
+
 async def response_data(is_auth: bool, q: Optional[str] = None, role_id: Optional[int] = None, contract_type: Optional[ContractType] = None, hidden: Optional[bool] = None):
     experiences = await load_experiences(is_auth, q, role_id, contract_type, hidden)
 
@@ -138,6 +148,11 @@ async def persist_experience(params: ExperienceBaseDTO, experience_id: Optional[
 @router.get('/experiences', status_code = 200, response_model = ExperiencesResponse)
 async def get_experiences(is_auth: bool = Depends(partial_authenticated), q: Optional[str] = Query(None), role_id: Optional[int] = Query(None), contract_type: Optional[ContractType] = Query(None), hidden: Optional[bool] = Query(None)):
     return await response_data(is_auth, q, role_id, contract_type, hidden)
+
+
+@router.get('/experiences/{experience_id}', status_code = 200, response_model = Experience)
+async def get_experience(experience_id: int, is_auth: bool = Depends(partial_authenticated)):
+    return await item_data(experience_id, is_auth)
 
 
 @router.post('/experiences', status_code = 201, response_model = ExperiencesResponse)

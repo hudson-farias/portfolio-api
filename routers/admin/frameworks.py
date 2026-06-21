@@ -80,9 +80,31 @@ async def sync_relations(framework_id: int, language_ids: List[int]):
             await orm.create(framework_id = framework_id, language_id = language_id)
 
 
+async def item_data(framework_id: int):
+    async with FrameworksORM() as orm:
+        framework = await orm.find_one(id = framework_id)
+
+    if not framework:
+        raise HTTPException(status_code = 404, detail = 'Framework não encontrado.')
+
+    framework_language_ids, languages_by_id = await load_relations()
+    linked = [
+        Language(**languages_by_id[language_id].dict())
+        for language_id in framework_language_ids.get(framework.id, [])
+        if language_id in languages_by_id
+    ]
+    linked.sort(key = lambda language: (language.sort_order, language.id))
+    return Framework(**framework.dict(), languages = linked)
+
+
 @router.get('/frameworks', status_code = 200, response_model = List[Framework])
 async def get(q: Optional[str] = Query(None)):
     return await response_data(q)
+
+
+@router.get('/frameworks/{framework_id}', status_code = 200, response_model = Framework)
+async def get_one(framework_id: int):
+    return await item_data(framework_id)
 
 
 @router.put('/frameworks/reorder', status_code = 201, response_model = List[Framework])
