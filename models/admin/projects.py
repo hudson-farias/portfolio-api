@@ -2,12 +2,21 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 
-class ProjectPayload(BaseModel):
-    title: str
+class ProjectTranslationFields(BaseModel):
+    title: str = ''
     description: Optional[str] = None
+
+
+class ProjectTranslations(BaseModel):
+    pt: Optional[ProjectTranslationFields] = None
+    en: Optional[ProjectTranslationFields] = None
+
+
+class ProjectPayload(BaseModel):
     image_url: Optional[str] = None
     live_url: Optional[str] = None
     repo_url: Optional[str] = None
+    translations: ProjectTranslations
 
 
 class Project(BaseModel):
@@ -28,6 +37,7 @@ class Project(BaseModel):
     archived: bool = False
     fork: bool = False
     external: bool = False
+    translations: Optional[ProjectTranslations] = None
 
 
 class Projects(BaseModel):

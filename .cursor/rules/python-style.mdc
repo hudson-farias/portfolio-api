@@ -50,19 +50,55 @@ async def get(is_auth: bool = Depends(partial_authenticated), q: Optional[str] =
 
 Vale para funções, métodos de classe e endpoints FastAPI.
 
-## Services vs lógica na rota
+## Database e traduções
+
+- Queries e persistência **somente via ORM** em `database/` — **não** usar `Session`/`select` em `routers/` ou `facades/`.
+- Traduções: `relationship` com `lazy='selectin'` nos ORMs traduzíveis; escolha de idioma via list comp na rota/facade; persistência via helper local `save_translations` nas rotas admin; tipo `Locale` em `routers/landpage/__init__.py`.
 
 **Priorizar lógica no próprio arquivo da rota** (`routers/admin/*.py`) — ORM, montagem de response, helpers locais (`response_data`, etc.).
 
-**Não criar service** (`services/*.py`) sem pedido explícito. Services existentes (ex.: `admin_filters`, `roles_map`) só quando já estão no projeto ou o usuário pedir.
+**Não criar service** (`services/*.py`) sem pedido explícito. Services existentes (ex.: `roles_map`) só quando já estão no projeto ou o usuário pedir.
+
+### Padrão i18n (obrigatório)
 
 ```python
-# ✅ OK — buscar roles e montar response dentro da rota
+# ✅ OK — ORM carrega; rota escolhe idioma
+picked = [t for t in experience.translations if t.locale == locale]
+if not picked:
+    picked = [t for t in experience.translations if t.locale == 'pt']
+translation = picked[0] if picked else None
+
+# ✅ OK — persistência só na rota admin (helper local)
+async def save_translations(entity_id, translation_orm, foreign_key, by_locale):
+    ...
+
+# ✅ OK — montar grouped inline na rota
+grouped = {row.locale: row.dict() for row in entity.translations}
+```
+
+### Restrições — o que NÃO fazer
+
+- **Não alterar** `database/__init__.py` sem permissão explícita do usuário.
+- **Não criar** `database/translatable.py`, mixins (`TranslatableMixin`), nem helpers globais de locale (`normalize_locale`, `translation_at`, propriedade `translation`, `localized()`).
+- **Não sobrescrever** `find_one` / `find_many` / `find_filtered` em subclasses de ORM — usar o `Base` com `lazy='selectin'`.
+- **Não adicionar** `locale=` nos métodos `find_*` do `Base`, nem `with_translations()` / `options=...with_translations()`.
+- **Não esconder** a escolha de idioma em abstrações — list comp visível na rota/facade.
+- **Não criar** services/deps/módulos soltos para lógica que cabe na rota ou no ORM existente.
+
+### Resumo
+
+**ORM carrega, rota escolhe idioma, admin persiste** — tudo explícito, sem mágica no meio.
+
+```python
+# ✅ OK — buscar e montar response dentro da rota
+async def load_experiences(is_auth: bool, q: Optional[str] = None):
+    filters = {'active': True} if not is_auth else {}
+    async with ExperiencesORM() as orm:
+        return await orm.find_filtered(q = q.strip() if q else None, q_columns = ['company'], **filters)
+
 async def response_data(is_auth: bool, q: Optional[str] = None):
-    experiences = await filter_experiences(is_auth, q)
-    async with RolesORM() as orm: roles = await orm.find_many()
-    roles = [ExperienceRole(id = role.id, title = role.title, locale = role.locale, active = role.active) for role in roles]
-    return ExperiencesResponse(experiences = [...], roles = roles)
+    experiences = await load_experiences(is_auth, q)
+    return ExperiencesResponse(experiences = [...])
 
 # ❌ EVITAR — service novo só para 3 linhas usadas numa rota
 # services/experiences.py

@@ -9,16 +9,10 @@ class ExperiencesORM(Base):
 
     id = Column(Integer, primary_key = True, index = True)
     company = Column(String(255), nullable = False)
-    period = Column(String(100), nullable = False)
     role_id = Column(Integer, ForeignKey('roles.id', ondelete = 'SET NULL'), nullable = True)
     contract_type = Column(String(20), nullable = True)
-    description = Column(String(255), nullable = False)
     live_url = Column(String(150), nullable = True)
     hidden = Column(Boolean, nullable = False, default = False)
 
-    role = relationship('RolesORM', foreign_keys = [role_id])
-
-    @property
-    def role_title(self):
-        if self.role is None: return None
-        return self.role.title
+    role = relationship('RolesORM', foreign_keys = [role_id], lazy = 'selectin')
+    translations = relationship('ExperienceTranslationsORM', back_populates = 'experience', cascade = 'all, delete-orphan', lazy = 'selectin')

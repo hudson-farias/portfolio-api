@@ -19,19 +19,20 @@ from models.landpage.databases import Database as LandpageDatabase, DatabasesRes
 
 from asyncio import gather
 from datetime import datetime
-from sqlalchemy.orm import selectinload
 
 
 class Landpage:
-    __skills = None
-    __experiences = None
-    __roles = None
-    __projects = None
-    __profile = None
-    __social_networks = None
-    __tools = None
-    __frameworks = None
-    __databases = None
+    def __init__(self, locale: str = 'pt'):
+        self.__locale = locale if locale in ('pt', 'en') else 'pt'
+        self.__skills = None
+        self.__experiences = None
+        self.__role_titles = None
+        self.__projects = None
+        self.__profile = None
+        self.__social_networks = None
+        self.__tools = None
+        self.__frameworks = None
+        self.__databases = None
 
 
     async def __fetch_social_networks(self):
@@ -60,37 +61,59 @@ class Landpage:
 
     async def __fetch_experiences(self):
         if not self.__experiences:
-            async with ExperiencesORM() as orm: experiences = await orm.find_many(hidden = False, options = selectinload(ExperiencesORM.role))
+            async with ExperiencesORM() as orm:
+                experiences = await orm.find_many(hidden = False)
 
-            self.__experiences = [Experience(
-                id = experience.id,
-                company = experience.company,
-                period = experience.period,
-                role = experience.role_title or '',
-                contract_type = experience.contract_type,
-                description = experience.description,
-                live_url = experience.live_url,
-            ) for experience in experiences]
+            self.__experiences = []
+
+            for experience in experiences:
+                picked = [t for t in experience.translations if t.locale == self.__locale]
+                if not picked:
+                    picked = [t for t in experience.translations if t.locale == 'pt']
+                translation = picked[0] if picked else None
+
+                role_translation = None
+                if experience.role:
+                    role_picked = [t for t in experience.role.translations if t.locale == self.__locale]
+                    if not role_picked:
+                        role_picked = [t for t in experience.role.translations if t.locale == 'pt']
+                    role_translation = role_picked[0] if role_picked else None
+
+                self.__experiences.append(Experience(
+                    id = experience.id,
+                    company = experience.company,
+                    period = translation.period or '' if translation else '',
+                    role = role_translation.title or '' if role_translation else '',
+                    contract_type = experience.contract_type,
+                    description = translation.description or '' if translation else '',
+                    live_url = experience.live_url,
+                ))
 
         return self.__experiences
 
 
-    async def __fetch_roles(self, locale: str = 'pt'):
-        if not self.__roles:
+    async def __fetch_roles(self):
+        if self.__role_titles is None:
             async with RolesORM() as orm:
                 roles = await orm.find_many(show = True, active = True)
-
-            roles = [role for role in roles if role.locale is None or role.locale == locale]
             roles.sort(key = lambda role: (not role.featured, role.sort_order, role.id))
 
-            self.__roles = [role.title for role in roles]
+            self.__role_titles = []
+            for role in roles:
+                picked = [t for t in role.translations if t.locale == self.__locale]
+                if not picked:
+                    picked = [t for t in role.translations if t.locale == 'pt']
+                translation = picked[0] if picked else None
+                self.__role_titles.append(translation.title or '' if translation else '')
 
-        return self.__roles
+        return self.__role_titles
 
 
     async def __fetch_projects(self):
         if not self.__projects:
-            async with ProjectsORM() as orm: projects_db = await orm.find_many()
+            async with ProjectsORM() as orm:
+                projects_db = await orm.find_many()
+
             projects_mapper = {project.git_id: project for project in projects_db}
             projects_ids = set(projects_mapper.keys())
 
@@ -105,11 +128,15 @@ class Landpage:
                 db = projects_mapper[git_id]
                 gh_name = project['name'].replace('-', ' ').title()
                 gh_description = project.get('description') or ''
+                picked = [t for t in db.translations if t.locale == self.__locale]
+                if not picked:
+                    picked = [t for t in db.translations if t.locale == 'pt']
+                translation = picked[0] if picked else None
 
                 self.__projects.append(Project(
                     id = git_id,
-                    name = db.title or gh_name,
-                    description = db.description or gh_description,
+                    name = translation.title or gh_name if translation else gh_name,
+                    description = translation.description or gh_description if translation else gh_description,
                     image_url = db.image_url,
                     homepage = db.live_url or project.get('homepage') or None,
                     html_url = db.repo_url or (None if project.get('private') else project.get('html_url')),
@@ -118,10 +145,15 @@ class Landpage:
             for db in projects_db:
                 if db.git_id >= 0: continue
 
+                picked = [t for t in db.translations if t.locale == self.__locale]
+                if not picked:
+                    picked = [t for t in db.translations if t.locale == 'pt']
+                translation = picked[0] if picked else None
+
                 self.__projects.append(Project(
                     id = db.git_id,
-                    name = db.title or 'Projeto externo',
-                    description = db.description or '',
+                    name = translation.title or 'Projeto externo' if translation else 'Projeto externo',
+                    description = translation.description or '' if translation else '',
                     image_url = db.image_url,
                     homepage = db.live_url,
                     html_url = db.repo_url,
@@ -132,7 +164,8 @@ class Landpage:
 
     async def __fetch_profile(self):
         if not self.__profile:
-            async with ProfileORM() as orm: self.__profile = await orm.find_one()
+            async with ProfileORM() as orm:
+                self.__profile = await orm.find_one()
 
         return self.__profile
 
@@ -141,14 +174,18 @@ class Landpage:
         await self.__fetch_social_networks()
         profile = await self.__fetch_profile()
         visible_roles = await self.__fetch_roles()
+        picked = [t for t in profile.translations if t.locale == self.__locale]
+        if not picked:
+            picked = [t for t in profile.translations if t.locale == 'pt']
+        translation = picked[0] if picked else None
 
         return HeroResponse(
             profile = HeroProfile(
                 name = profile.name,
                 roles = visible_roles,
-                location = profile.location,
+                location = translation.location or '' if translation else '',
                 email = profile.email,
-                about = profile.summary,
+                about = translation.summary or '' if translation else '',
                 available = profile.available,
             ),
             social_networks = self.__social_networks.get('hero') or []
@@ -160,9 +197,13 @@ class Landpage:
         profile = await self.__fetch_profile()
         projects = await self.__fetch_projects()
         years_experience = max(0, datetime.now().year - profile.career_start)
+        picked = [t for t in profile.translations if t.locale == self.__locale]
+        if not picked:
+            picked = [t for t in profile.translations if t.locale == 'pt']
+        translation = picked[0] if picked else None
 
         return AboutResponse(
-            profile = AboutProfile(about_extended = profile.about_me),
+            profile = AboutProfile(about_extended = translation.about_me or '' if translation else ''),
             stats = Stats(
                 years_experience = years_experience,
                 projects_count = len(projects),
@@ -273,11 +314,15 @@ class Landpage:
     async def metadata(self):
         profile = await self.__fetch_profile()
         visible_roles = await self.__fetch_roles()
+        picked = [t for t in profile.translations if t.locale == self.__locale]
+        if not picked:
+            picked = [t for t in profile.translations if t.locale == 'pt']
+        translation = picked[0] if picked else None
 
         return MetadataResponse(
             name = profile.name,
             roles = visible_roles,
-            about = profile.summary,
+            about = translation.summary or '' if translation else '',
         )
 
 

@@ -5,13 +5,22 @@ from database.languages import LanguagesORM
 
 from models.admin.languages import *
 
-from services.admin_filters import filter_languages
-
 from typing import List, Optional
 
 
+async def load_languages(q: Optional[str] = None):
+    async with LanguagesORM() as orm:
+        languages = await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['name', 'icon'],
+        )
+
+    languages.sort(key = lambda language: (language.sort_order, language.id))
+    return languages
+
+
 async def response_data(q: Optional[str] = None):
-    languages = await filter_languages(q)
+    languages = await load_languages(q)
     return [Language(**language.dict()) for language in languages]
 
 

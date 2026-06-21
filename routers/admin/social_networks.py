@@ -5,13 +5,22 @@ from database.social_networks import SocialNetworksORM
 
 from models.admin.social_networks import *
 
-from services.admin_filters import filter_social_networks
-
 from typing import List, Optional
 
 
+async def load_social_networks(q: Optional[str] = None, position: Optional[str] = None):
+    array_contains = {'positions': position} if position else None
+
+    async with SocialNetworksORM() as orm:
+        return await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['url', 'icon'],
+            array_contains = array_contains,
+        )
+
+
 async def response_data(q: Optional[str] = None, position: Optional[str] = None):
-    social_networks = await filter_social_networks(q, position)
+    social_networks = await load_social_networks(q, position)
     return [SocialNetwork(**social_network.dict()) for social_network in social_networks]
 
 

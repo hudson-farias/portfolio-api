@@ -1,6 +1,7 @@
 from re import sub
 
-from sqlalchemy import Column, Integer, String, Text, Boolean
+from sqlalchemy import Column, Integer, String, Boolean
+from sqlalchemy.orm import relationship
 
 from database import Base
 
@@ -11,9 +12,6 @@ class ProfileORM(Base):
     id = Column(Integer, primary_key = True, index = True)
     name = Column(String(150), nullable = False)
     last_name = Column(String(150), nullable = False, default = '')
-    summary = Column(Text, nullable = False)
-    about_me = Column(Text, nullable = False)
-    location = Column(String(150), nullable = False, default = '')
     available = Column(Boolean, nullable = False, default = True)
     email = Column(String(255), nullable = False)
     whatsapp = Column(String(30), nullable = False)
@@ -21,6 +19,8 @@ class ProfileORM(Base):
     github = Column(String(200), nullable = False)
     gitlab = Column(String(200), nullable = False)
     career_start = Column(Integer, nullable = False, server_default = '2021')
+
+    translations = relationship('ProfileTranslationsORM', back_populates = 'profile', cascade = 'all, delete-orphan', lazy = 'selectin')
 
     @property
     def whatsapp_url(self):

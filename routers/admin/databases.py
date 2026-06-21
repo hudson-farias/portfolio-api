@@ -5,13 +5,22 @@ from database.databases import DatabasesORM
 
 from models.admin.databases import *
 
-from services.admin_filters import filter_databases
-
 from typing import List, Optional
 
 
+async def load_databases(q: Optional[str] = None):
+    async with DatabasesORM() as orm:
+        databases = await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['name', 'icon', 'scope'],
+        )
+
+    databases.sort(key = lambda database: (database.sort_order, database.id))
+    return databases
+
+
 async def response_data(q: Optional[str] = None):
-    databases = await filter_databases(q)
+    databases = await load_databases(q)
     return [Database(**database.dict()) for database in databases]
 
 

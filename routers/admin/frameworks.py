@@ -8,9 +8,18 @@ from database.languages import LanguagesORM
 from models.admin.frameworks import *
 from models.admin.languages import Language
 
-from services.admin_filters import filter_frameworks, filter_languages
-
 from typing import Dict, List, Optional
+
+
+async def load_frameworks(q: Optional[str] = None):
+    async with FrameworksORM() as orm:
+        frameworks = await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['name', 'icon', 'scope'],
+        )
+
+    frameworks.sort(key = lambda framework: (framework.sort_order, framework.id))
+    return frameworks
 
 
 async def load_relations():
@@ -20,14 +29,17 @@ async def load_relations():
     for relation in relations:
         framework_language_ids.setdefault(relation.framework_id, []).append(relation.language_id)
 
-    languages = await filter_languages()
+    async with LanguagesORM() as orm:
+        languages = await orm.find_filtered(q_columns = ['name', 'icon'])
+
+    languages.sort(key = lambda language: (language.sort_order, language.id))
     languages_by_id = {language.id: language for language in languages}
 
     return framework_language_ids, languages_by_id
 
 
 async def response_data(q: Optional[str] = None):
-    frameworks = await filter_frameworks(q)
+    frameworks = await load_frameworks(q)
     framework_language_ids, languages_by_id = await load_relations()
 
     data = []

@@ -5,13 +5,19 @@ from database.skills import SkillsORM
 
 from models.admin.skills import *
 
-from services.admin_filters import filter_skills
-
 from typing import Optional
 
 
+async def load_skills(q: Optional[str] = None):
+    async with SkillsORM() as orm:
+        return await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['name', 'icon'],
+        )
+
+
 async def response_data(q: Optional[str] = None):
-    skills = await filter_skills(q)
+    skills = await load_skills(q)
     return SkillsResponse(skills = [Skill(**skill.dict()) for skill in skills])
 
 

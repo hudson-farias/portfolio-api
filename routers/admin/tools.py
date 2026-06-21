@@ -5,13 +5,22 @@ from database.tools import ToolsORM
 
 from models.admin.tools import *
 
-from services.admin_filters import filter_tools
-
 from typing import List, Optional
 
 
+async def load_tools(q: Optional[str] = None):
+    async with ToolsORM() as orm:
+        tools = await orm.find_filtered(
+            q = q.strip() if q else None,
+            q_columns = ['name', 'icon', 'url'],
+        )
+
+    tools.sort(key = lambda tool: (tool.sort_order, tool.id))
+    return tools
+
+
 async def response_data(q: Optional[str] = None):
-    tools = await filter_tools(q)
+    tools = await load_tools(q)
     return [Tool(**tool.dict()) for tool in tools]
 
 

@@ -1,7 +1,5 @@
 from fastapi import Depends
 
-from sqlalchemy.orm import selectinload
-
 from routers.admin import router, partial_authenticated
 
 from database.experiences import ExperiencesORM
@@ -33,22 +31,30 @@ async def get_dashboard(is_auth: bool = Depends(partial_authenticated)):
     data = DashboardResponse(counts = DashboardCounts(experiences = 0, skills = 0, projects = 0, social_networks = 0, tools = 0, languages = 0, frameworks = 0, databases = 0))
 
     async with ExperiencesORM() as orm:
-        options = selectinload(ExperiencesORM.role)
-        if is_auth: experiences = await orm.find_many(options = options)
-        else: experiences = await orm.find_many(hidden = False, options = options)
+        if is_auth:
+            experiences = await orm.find_many()
+        else:
+            experiences = await orm.find_many(hidden = False)
 
     data.counts.experiences = len(experiences)
-    data.experiences = [
-        DashboardExperience(
+    data.experiences = []
+    for experience in experiences[:PREVIEW_EXPERIENCES]:
+        picked = [t for t in experience.translations if t.locale == 'pt']
+        translation = picked[0] if picked else None
+
+        role_translation = None
+        if experience.role:
+            role_picked = [t for t in experience.role.translations if t.locale == 'pt']
+            role_translation = role_picked[0] if role_picked else None
+
+        data.experiences.append(DashboardExperience(
             id = experience.id,
             company = experience.company,
-            period = experience.period,
-            role = experience.role_title or '—',
-            description = experience.description,
+            period = translation.period or '' if translation else '',
+            role = role_translation.title or '—' if role_translation else '—',
+            description = translation.description or '' if translation else '',
             hidden = experience.hidden,
-        )
-        for experience in experiences[:PREVIEW_EXPERIENCES]
-    ]
+        ))
 
     async with SkillsORM() as orm: skills = await orm.find_many()
 

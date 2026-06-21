@@ -5,8 +5,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 from io import BytesIO
 
-from sqlalchemy.orm import selectinload
-
 from database.profile import ProfileORM
 from database.roles import RolesORM
 from database.skills import SkillsORM
@@ -45,18 +43,26 @@ class Curriculum:
 
     async def __load_profile(self):
         if not self.profile:
-            async with ProfileORM() as orm: self.profile = await orm.find_one()
+            async with ProfileORM() as orm:
+                self.profile = await orm.find_one()
 
         return self.profile
 
 
-    async def __load_roles(self):
+    async def __load_roles(self, locale: str = 'pt'):
         if self.roles is None:
-            async with RolesORM() as orm: rows = await orm.find_many(show = True, active = True)
+            async with RolesORM() as orm:
+                rows = await orm.find_many(show = True, active = True)
 
-            rows = [role for role in rows if role.locale is None or role.locale == 'pt']
             rows.sort(key = lambda role: (not role.featured, role.sort_order, role.id))
-            self.roles = [role.title for role in rows]
+
+            self.roles = []
+            for role in rows:
+                picked = [t for t in role.translations if t.locale == locale]
+                if not picked:
+                    picked = [t for t in role.translations if t.locale == 'pt']
+                translation = picked[0] if picked else None
+                self.roles.append(translation.title or '' if translation else '')
 
         return self.roles
 
@@ -81,7 +87,9 @@ class Curriculum:
 
         if roles: self.__add(' | '.join(roles), 'HeaderSubtitle', spacer = 9)
 
-        if profile.location: self.__add(profile.location, spacer = 3)
+        picked = [t for t in profile.translations if t.locale == 'pt']
+        location = picked[0] if picked else None
+        if location: self.__add(location.location, spacer = 3)
 
         contact_parts = [part for part in [profile.email, profile.whatsapp] if part]
         if contact_parts: self.__add(' | '.join(contact_parts), spacer = 3)
@@ -91,10 +99,13 @@ class Curriculum:
 
     async def __summary(self):
         profile = await self.__load_profile()
-        if not profile.about_me: return
+        picked = [t for t in profile.translations if t.locale == 'pt']
+        translation = picked[0] if picked else None
+        about_me = translation.about_me if translation else None
+        if not about_me: return
 
         self.__add('<b>Resumo Profissional</b>', 'SectionTitle')
-        self.__add(profile.about_me.replace('\n', '<br />'))
+        self.__add(about_me.replace('\n', '<br />'))
         self.__add('<br />')
 
 
@@ -235,7 +246,7 @@ class Curriculum:
         experience_ids = self.filters.get('experience_ids', set())
 
         async with ExperiencesORM() as orm:
-            experiences = await orm.find_many(hidden = False, options = selectinload(ExperiencesORM.role))
+            experiences = await orm.find_many(hidden = False)
 
         visible = [experience for experience in experiences[::-1] if experience_matches_filter(experience.id, experience_ids)]
         if not visible: return
@@ -243,9 +254,19 @@ class Curriculum:
         self.__add('<b>Experiência Profissional</b>', 'SectionTitle')
 
         for experience in visible:
-            title = f'{experience.company} | {experience.role_title or ""}'
-            self.__add(f'<b>{title} | {experience.period} </b>', 'SectionSubtitle')
-            self.__add(experience.description.replace('\n', '<br />'))
+            picked = [t for t in experience.translations if t.locale == 'pt']
+            translation = picked[0] if picked else None
+
+            role_translation = None
+            if experience.role:
+                role_picked = [t for t in experience.role.translations if t.locale == 'pt']
+                role_translation = role_picked[0] if role_picked else None
+
+            period = translation.period or '' if translation else ''
+            description = translation.description or '' if translation else ''
+            title = f'{experience.company} | {role_translation.title or "" if role_translation else ""}'
+            self.__add(f'<b>{title} | {period} </b>', 'SectionSubtitle')
+            self.__add(description.replace('\n', '<br />'))
 
         self.__add('<br />')
 
