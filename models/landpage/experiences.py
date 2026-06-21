@@ -14,6 +14,7 @@ class Experience(BaseModel):
     role: str
     contract_type: Optional[ContractType] = None
     description: str
+    live_url: Optional[str] = None
 
 
 class ExperiencesResponse(BaseModel):

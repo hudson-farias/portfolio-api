@@ -13,6 +13,7 @@ class ExperiencesORM(Base):
     role_id = Column(Integer, ForeignKey('roles.id', ondelete = 'SET NULL'), nullable = True)
     contract_type = Column(String(20), nullable = True)
     description = Column(String(255), nullable = False)
+    live_url = Column(String(150), nullable = True)
     hidden = Column(Boolean, nullable = False, default = False)
 
     role = relationship('RolesORM', foreign_keys = [role_id])

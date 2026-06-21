@@ -10,6 +10,7 @@ class ExperienceDTO(BaseModel):
     role_id: Optional[int] = None
     contract_type: Optional[ContractType] = None
     description: str
+    live_url: Optional[str] = None
     hidden: bool = False
 
 

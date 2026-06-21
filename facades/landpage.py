@@ -69,6 +69,7 @@ class Landpage:
                 role = experience.role_title or '',
                 contract_type = experience.contract_type,
                 description = experience.description,
+                live_url = experience.live_url,
             ) for experience in experiences]
 
         return self.__experiences
