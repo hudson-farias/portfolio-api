@@ -3,13 +3,15 @@ from routers.admin import router, partial_authenticated, has_authenticated
 
 from database.experiences import ExperiencesORM
 from database.experience_translations import ExperienceTranslationsORM
+from database.experience_frameworks import ExperienceFrameworksORM
+from database.frameworks import FrameworksORM
 from database.roles import RolesORM
 
 from models.admin.experiences import *
 
 from utils.sanitize import sanitize_html
 
-from typing import Optional
+from typing import Dict, List, Optional
 
 
 async def save_translations(entity_id, translation_orm, foreign_key, by_locale):
@@ -26,6 +28,52 @@ async def save_translations(entity_id, translation_orm, foreign_key, by_locale):
                 await orm.update(id = existing.id, **fields)
             else:
                 await orm.create(**filters, **fields)
+
+
+async def load_experience_framework_ids():
+    async with ExperienceFrameworksORM() as orm: relations = await orm.find_many()
+
+    by_experience: Dict[int, List[int]] = {}
+
+    for relation in relations:
+        by_experience.setdefault(relation.experience_id, []).append(relation.framework_id)
+
+    return by_experience
+
+
+async def load_framework_refs(framework_ids: List[int]):
+    if not framework_ids: return []
+
+    async with FrameworksORM() as orm: frameworks = await orm.find_many()
+    frameworks_by_id = {framework.id: framework for framework in frameworks}
+
+    refs = [
+        FrameworkRef(**frameworks_by_id[framework_id].dict())
+        for framework_id in framework_ids
+        if framework_id in frameworks_by_id
+    ]
+    refs.sort(key = lambda item: (item.name.lower(), item.id))
+
+    return refs
+
+
+async def validate_framework_ids(framework_ids: List[int]):
+    if not framework_ids: return
+
+    async with FrameworksORM() as orm: frameworks = await orm.find_many()
+    existing_ids = {framework.id for framework in frameworks}
+    invalid = set(framework_ids) - existing_ids
+
+    if invalid: raise HTTPException(status_code = 400, detail = 'Um ou mais frameworks informados não existem.')
+
+
+async def sync_relations(experience_id: int, framework_ids: List[int]):
+    async with ExperienceFrameworksORM() as orm: await orm.delete(experience_id = experience_id)
+
+    unique_ids = list(dict.fromkeys(framework_ids))
+    for framework_id in unique_ids:
+        async with ExperienceFrameworksORM() as orm:
+            await orm.create(experience_id = experience_id, framework_id = framework_id)
 
 
 def _experience_filters(is_auth: bool, role_id: Optional[int] = None, contract_type: Optional[ContractType] = None, hidden: Optional[bool] = None):
@@ -72,7 +120,7 @@ def translations_payload(translations: ExperienceTranslations):
     return payload
 
 
-def experience_to_model(experience):
+def experience_to_model(experience, framework_ids_by_experience: Dict[int, List[int]], framework_refs_by_id: Dict[int, FrameworkRef]):
     translations = experience_translations_model(experience)
     picked = [t for t in experience.translations if t.locale == 'pt']
     translation = picked[0] if picked else None
@@ -81,6 +129,13 @@ def experience_to_model(experience):
     if experience.role:
         role_picked = [t for t in experience.role.translations if t.locale == 'pt']
         role_translation = role_picked[0] if role_picked else None
+
+    framework_ids = framework_ids_by_experience.get(experience.id, [])
+    frameworks = [
+        framework_refs_by_id[framework_id]
+        for framework_id in framework_ids
+        if framework_id in framework_refs_by_id
+    ]
 
     return Experience(
         id = experience.id,
@@ -92,8 +147,17 @@ def experience_to_model(experience):
         live_url = experience.live_url,
         hidden = experience.hidden,
         role_title = role_translation.title if role_translation else None,
+        framework_ids = framework_ids,
+        frameworks = frameworks,
         translations = translations,
     )
+
+
+async def framework_refs_by_id():
+    async with FrameworksORM() as orm: frameworks = await orm.find_many()
+    frameworks.sort(key = lambda framework: (framework.sort_order, framework.id))
+
+    return {framework.id: FrameworkRef(**framework.dict()) for framework in frameworks}
 
 
 async def item_data(experience_id: int, is_auth: bool):
@@ -103,11 +167,16 @@ async def item_data(experience_id: int, is_auth: bool):
     if not experience or (not is_auth and experience.hidden):
         raise HTTPException(status_code = 404, detail = 'Experiência não encontrada.')
 
-    return experience_to_model(experience)
+    framework_ids_by_experience = await load_experience_framework_ids()
+    refs_by_id = await framework_refs_by_id()
+
+    return experience_to_model(experience, framework_ids_by_experience, refs_by_id)
 
 
 async def response_data(is_auth: bool, q: Optional[str] = None, role_id: Optional[int] = None, contract_type: Optional[ContractType] = None, hidden: Optional[bool] = None):
     experiences = await load_experiences(is_auth, q, role_id, contract_type, hidden)
+    framework_ids_by_experience = await load_experience_framework_ids()
+    refs_by_id = await framework_refs_by_id()
 
     async with RolesORM() as orm:
         roles = await orm.find_many()
@@ -119,12 +188,14 @@ async def response_data(is_auth: bool, q: Optional[str] = None, role_id: Optiona
         role_items.append(ExperienceRole(id = role.id, title = translation.title or '' if translation else '', active = role.active))
 
     return ExperiencesResponse(
-        experiences = [experience_to_model(experience) for experience in experiences],
+        experiences = [experience_to_model(experience, framework_ids_by_experience, refs_by_id) for experience in experiences],
         roles = role_items,
     )
 
 
 async def persist_experience(params: ExperienceBaseDTO, experience_id: Optional[int] = None):
+    await validate_framework_ids(params.framework_ids)
+
     payload = {
         'company': params.company,
         'role_id': params.role_id,
@@ -143,6 +214,7 @@ async def persist_experience(params: ExperienceBaseDTO, experience_id: Optional[
             experience = await orm.find_one(id = experience_id)
 
         await save_translations(experience.id, ExperienceTranslationsORM, 'experience_id', translations_payload(params.translations))
+        await sync_relations(experience.id, params.framework_ids)
 
 
 @router.get('/experiences', status_code = 200, response_model = ExperiencesResponse)

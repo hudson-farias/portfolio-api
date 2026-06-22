@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from typing import List, Literal, Optional
 
 from models.landpage.__base import SocialNetwork
+from models.landpage.frameworks import LandpageFrameworkRef
 
 
 ContractType = Literal['CLT', 'PJ', 'FREELANCER']
@@ -15,6 +16,7 @@ class Experience(BaseModel):
     contract_type: Optional[ContractType] = None
     description: str
     live_url: Optional[str] = None
+    frameworks: List[LandpageFrameworkRef] = []
 
 
 class ExperiencesResponse(BaseModel):

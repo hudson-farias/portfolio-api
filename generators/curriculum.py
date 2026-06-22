@@ -13,6 +13,7 @@ from database.tools import ToolsORM
 from database.frameworks import FrameworksORM
 from database.databases import DatabasesORM
 from database.languages import LanguagesORM
+from database.experience_frameworks import ExperienceFrameworksORM
 from database.language_frameworks import LanguageFrameworksORM
 
 from services.resume_filters import database_matches_filter, experience_matches_filter, framework_matches_filter, skill_matches_filter, tool_matches_filter
@@ -246,8 +247,54 @@ class Curriculum:
         self.__add('<br />')
 
 
+    async def __load_framework_labels(self):
+        async with FrameworksORM() as orm: framework_rows = await orm.find_many()
+        framework_rows.sort(key = lambda framework: (framework.sort_order, framework.id))
+        frameworks_by_id = {framework.id: framework for framework in framework_rows}
+
+        async with LanguagesORM() as orm: language_rows = await orm.find_many()
+        languages_by_id = {row.id: row for row in language_rows}
+
+        async with LanguageFrameworksORM() as orm: relations = await orm.find_many()
+        languages_by_framework = {}
+
+        for relation in relations:
+            languages_by_framework.setdefault(relation.framework_id, []).append(relation.language_id)
+
+        def labels_for_ids(framework_ids):
+            items = []
+
+            for framework_id in framework_ids:
+                framework = frameworks_by_id.get(framework_id)
+                if not framework: continue
+
+                linked = [
+                    languages_by_id[language_id].name
+                    for language_id in languages_by_framework.get(framework_id, [])
+                    if language_id in languages_by_id
+                ]
+                linked.sort(key = lambda name: name.lower())
+
+                label = framework.name
+                if linked:
+                    label = f'{framework.name} ({", ".join(linked)})'
+
+                items.append(label)
+
+            return items
+
+        async with ExperienceFrameworksORM() as orm: experience_relations = await orm.find_many()
+        experience_framework_ids = {}
+
+        for relation in experience_relations:
+            experience_framework_ids.setdefault(relation.experience_id, []).append(relation.framework_id)
+
+        return experience_framework_ids, labels_for_ids
+
+
     async def __experience(self):
         experience_ids = self.filters.get('experience_ids', set())
+        experience_framework_ids, labels_for_ids = await self.__load_framework_labels()
 
         async with ExperiencesORM() as orm:
             experiences = await orm.find_many(hidden = False)
@@ -271,6 +318,10 @@ class Curriculum:
             title = f'{experience.company} | {role_translation.title or "" if role_translation else ""}'
             self.__add(f'<b>{title} | {period} </b>', 'SectionSubtitle')
             self.__add(description.replace('\n', '<br />'))
+
+            stack_labels = labels_for_ids(experience_framework_ids.get(experience.id, []))
+            if stack_labels:
+                self.__add(f'<i>Stack: {", ".join(stack_labels)}</i>')
 
         self.__add('<br />')
 

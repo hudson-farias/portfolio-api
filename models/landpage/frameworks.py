@@ -8,6 +8,13 @@ class LandpageLanguageRef(BaseModel):
     icon: str
 
 
+class LandpageFrameworkRef(BaseModel):
+    id: int
+    name: str
+    icon: str
+    languages: List[LandpageLanguageRef] = []
+
+
 class Framework(BaseModel):
     id: int
     name: str

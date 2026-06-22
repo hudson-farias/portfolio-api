@@ -2,6 +2,12 @@ from pydantic import BaseModel
 from typing import Optional, List
 
 
+class FrameworkRef(BaseModel):
+    id: int
+    name: str
+    icon: str
+
+
 class ProjectTranslationFields(BaseModel):
     title: str = ''
     description: Optional[str] = None
@@ -16,6 +22,7 @@ class ProjectPayload(BaseModel):
     image_url: Optional[str] = None
     live_url: Optional[str] = None
     repo_url: Optional[str] = None
+    framework_ids: List[int] = []
     translations: ProjectTranslations
 
 
@@ -37,6 +44,8 @@ class Project(BaseModel):
     archived: bool = False
     fork: bool = False
     external: bool = False
+    framework_ids: List[int] = []
+    frameworks: List[FrameworkRef] = []
     translations: Optional[ProjectTranslations] = None
 
 

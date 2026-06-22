@@ -4,6 +4,8 @@ from database.languages import LanguagesORM
 from database.frameworks import FrameworksORM
 from database.databases import DatabasesORM
 from database.language_frameworks import LanguageFrameworksORM
+from database.experience_frameworks import ExperienceFrameworksORM
+from database.project_frameworks import ProjectFrameworksORM
 from database.skills import SkillsORM
 from database.experiences import ExperiencesORM
 from database.projects import ProjectsORM
@@ -14,10 +16,10 @@ from services.github import github
 
 from models.landpage import *
 
-from models.landpage.frameworks import Framework as LandpageFramework, LandpageLanguageRef, FrameworksResponse
+from models.landpage.frameworks import Framework as LandpageFramework, LandpageFrameworkRef, LandpageLanguageRef, FrameworksResponse
 from models.landpage.databases import Database as LandpageDatabase, DatabasesResponse
 
-from asyncio import gather
+from asyncio import Lock, gather
 from datetime import datetime
 
 
@@ -33,6 +35,11 @@ class Landpage:
         self.__tools = None
         self.__frameworks = None
         self.__databases = None
+        self.__frameworks_by_id = None
+        self.__languages_by_framework = None
+        self.__experience_framework_ids = None
+        self.__project_framework_ids = None
+        self.__projects_lock = Lock()
 
 
     async def __fetch_social_networks(self):
@@ -59,11 +66,84 @@ class Landpage:
         return self.__skills
 
 
+    async def __fetch_experience_framework_ids(self):
+        if self.__experience_framework_ids is None:
+            async with ExperienceFrameworksORM() as orm: relations = await orm.find_many()
+
+            self.__experience_framework_ids = {}
+
+            for relation in relations:
+                self.__experience_framework_ids.setdefault(relation.experience_id, []).append(relation.framework_id)
+
+        return self.__experience_framework_ids
+
+
+    async def __fetch_project_framework_ids(self):
+        if self.__project_framework_ids is None:
+            async with ProjectFrameworksORM() as orm: relations = await orm.find_many()
+
+            self.__project_framework_ids = {}
+
+            for relation in relations:
+                self.__project_framework_ids.setdefault(relation.project_id, []).append(relation.framework_id)
+
+        return self.__project_framework_ids
+
+
+    async def __ensure_framework_lookup(self):
+        await self.__fetch_frameworks()
+
+        if self.__frameworks_by_id is None:
+            self.__frameworks_by_id = {framework.id: framework for framework in self.__frameworks}
+
+        if self.__languages_by_framework is None:
+            by_framework, by_language = await self.__fetch_relations()
+            self.__languages_by_framework = by_framework
+
+        return self.__frameworks_by_id, self.__languages_by_framework
+
+
+    async def __framework_refs(self, framework_ids):
+        if not framework_ids: return []
+
+        frameworks_by_id, languages_by_framework = await self.__ensure_framework_lookup()
+        async with LanguagesORM() as orm: language_rows = await orm.find_many()
+        languages_by_id = {row.id: row for row in language_rows}
+
+        refs = []
+
+        for framework_id in framework_ids:
+            framework = frameworks_by_id.get(framework_id)
+            if not framework: continue
+
+            linked = [
+                LandpageLanguageRef(
+                    id = language_row.id,
+                    name = language_row.name,
+                    icon = language_row.icon,
+                )
+                for language_id in languages_by_framework.get(framework_id, [])
+                if (language_row := languages_by_id.get(language_id))
+            ]
+            linked.sort(key = lambda item: item.name.lower())
+
+            refs.append(LandpageFrameworkRef(
+                id = framework.id,
+                name = framework.name,
+                icon = framework.icon,
+                languages = linked,
+            ))
+
+        refs.sort(key = lambda item: (item.name.lower(), item.id))
+        return refs
+
+
     async def __fetch_experiences(self):
         if not self.__experiences:
             async with ExperiencesORM() as orm:
                 experiences = await orm.find_many(hidden = False)
 
+            experience_framework_ids = await self.__fetch_experience_framework_ids()
             self.__experiences = []
 
             for experience in experiences:
@@ -79,6 +159,9 @@ class Landpage:
                         role_picked = [t for t in experience.role.translations if t.locale == 'pt']
                     role_translation = role_picked[0] if role_picked else None
 
+                framework_ids = experience_framework_ids.get(experience.id, [])
+                frameworks = await self.__framework_refs(framework_ids)
+
                 self.__experiences.append(Experience(
                     id = experience.id,
                     company = experience.company,
@@ -87,6 +170,7 @@ class Landpage:
                     contract_type = experience.contract_type,
                     description = translation.description or '' if translation else '',
                     live_url = experience.live_url,
+                    frameworks = frameworks,
                 ))
 
         return self.__experiences
@@ -109,57 +193,77 @@ class Landpage:
         return self.__role_titles
 
 
+    def __project_dedupe_key(self, git_id: int, html_url, homepage):
+        url = (html_url or homepage or '').strip().rstrip('/').lower()
+        if url: return url
+        return f'git:{git_id}'
+
+
     async def __fetch_projects(self):
-        if not self.__projects:
+        if self.__projects is not None:
+            return self.__projects
+
+        async with self.__projects_lock:
+            if self.__projects is not None:
+                return self.__projects
+
             async with ProjectsORM() as orm:
                 projects_db = await orm.find_many()
 
-            projects_mapper = {project.git_id: project for project in projects_db}
-            projects_ids = set(projects_mapper.keys())
+            github_by_id = {project['id']: project for project in github(True)}
+            project_framework_ids = await self.__fetch_project_framework_ids()
 
-            projects = github(True)
+            items = []
+            seen_git_ids = set()
+            seen_repo_keys = set()
 
-            self.__projects = []
-
-            for project in projects:
-                git_id = project['id']
-                if git_id not in projects_ids: continue
-
-                db = projects_mapper[git_id]
-                gh_name = project['name'].replace('-', ' ').title()
-                gh_description = project.get('description') or ''
-                picked = [t for t in db.translations if t.locale == self.__locale]
-                if not picked:
-                    picked = [t for t in db.translations if t.locale == 'pt']
-                translation = picked[0] if picked else None
-
-                self.__projects.append(Project(
-                    id = git_id,
-                    name = translation.title or gh_name if translation else gh_name,
-                    description = translation.description or gh_description if translation else gh_description,
-                    image_url = db.image_url,
-                    homepage = db.live_url or project.get('homepage') or None,
-                    html_url = db.repo_url or (None if project.get('private') else project.get('html_url')),
-                ))
-
-            for db in projects_db:
-                if db.git_id >= 0: continue
+            for db in sorted(projects_db, key = lambda row: row.id):
+                if db.git_id > 0 and db.git_id in seen_git_ids:
+                    continue
 
                 picked = [t for t in db.translations if t.locale == self.__locale]
                 if not picked:
                     picked = [t for t in db.translations if t.locale == 'pt']
                 translation = picked[0] if picked else None
 
-                self.__projects.append(Project(
-                    id = db.git_id,
-                    name = translation.title or 'Projeto externo' if translation else 'Projeto externo',
-                    description = translation.description or '' if translation else '',
+                frameworks = await self.__framework_refs(project_framework_ids.get(db.id, []))
+
+                if db.git_id > 0:
+                    gh = github_by_id.get(db.git_id)
+                    if not gh: continue
+
+                    gh_name = gh['name'].replace('-', ' ').title()
+                    gh_description = gh.get('description') or ''
+                    html_url = db.repo_url or (None if gh.get('private') else gh.get('html_url'))
+                    homepage = db.live_url or gh.get('homepage') or None
+                    name = translation.title or gh_name if translation else gh_name
+                    description = translation.description or gh_description if translation else gh_description
+                    project_id = db.git_id
+                    seen_git_ids.add(db.git_id)
+                else:
+                    html_url = db.repo_url
+                    homepage = db.live_url
+                    name = translation.title or 'Projeto externo' if translation else 'Projeto externo'
+                    description = translation.description or '' if translation else ''
+                    project_id = db.git_id
+
+                repo_key = self.__project_dedupe_key(project_id, html_url, homepage)
+                if repo_key in seen_repo_keys:
+                    continue
+                seen_repo_keys.add(repo_key)
+
+                items.append(Project(
+                    id = project_id,
+                    name = name,
+                    description = description,
                     image_url = db.image_url,
-                    homepage = db.live_url,
-                    html_url = db.repo_url,
+                    homepage = homepage,
+                    html_url = html_url,
+                    frameworks = frameworks,
                 ))
 
-        return self.__projects
+            self.__projects = items
+            return self.__projects
 
 
     async def __fetch_profile(self):

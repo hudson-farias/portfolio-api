@@ -2,6 +2,12 @@ from pydantic import BaseModel
 from typing import List, Literal, Optional
 
 
+class FrameworkRef(BaseModel):
+    id: int
+    name: str
+    icon: str
+
+
 class ExperienceTranslationFields(BaseModel):
     period: str = ''
     description: str = ''
@@ -21,6 +27,7 @@ class ExperienceBaseDTO(BaseModel):
     contract_type: Optional[ContractType] = None
     live_url: Optional[str] = None
     hidden: bool = False
+    framework_ids: List[int] = []
     translations: ExperienceTranslations
 
 
@@ -29,6 +36,7 @@ class Experience(ExperienceBaseDTO):
     period: str
     description: str
     role_title: Optional[str] = None
+    frameworks: List[FrameworkRef] = []
 
 
 class ExperienceRole(BaseModel):
