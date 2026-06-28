@@ -9,18 +9,17 @@ from os import walk
 
 from env import DOCS_PATH, REDOCS_PATH, CORS_ORIGINS
 from utils.rate_limit import limiter
+from utils.cors_origins import cors_middleware_kwargs
 
 
-app = FastAPI(root_path = '/api', docs_url = DOCS_PATH, redoc_url = REDOCS_PATH)
+app = FastAPI(docs_url = DOCS_PATH, redoc_url = REDOCS_PATH)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-_cors_origins = [origin.strip() for origin in CORS_ORIGINS.split(',') if origin.strip()]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = _cors_origins or [],
+    **cors_middleware_kwargs(CORS_ORIGINS),
     allow_credentials = True,
     allow_methods = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allow_headers = ['Authorization', 'Content-Type'],
