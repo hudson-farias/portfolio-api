@@ -33,7 +33,7 @@ async def _auth_service_valid(request: Request, auth: Optional[HTTPAuthorization
 
     try:
         async with httpx.AsyncClient(timeout = 5.0) as client:
-            response = await client.get(f'{base}/auth/verify', headers = headers)
+            response = await client.get(f'{base}/verify', headers = headers)
     except httpx.HTTPError:
         return False
 
